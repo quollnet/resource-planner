@@ -1,0 +1,207 @@
+/* === vis-timeline inherits Bootstrap theme via CSS vars ============= */
+
+/* panel background (overrides inline white) */
+.vis-timeline .vis-panel {
+  background-color: var(--bs-body-bg) !important;
+}
+
+/* grid lines */
+.vis-timeline .vis-grid,
+.vis-timeline .vis-grid.vis-vertical {
+  background-color: var(--bs-border-color) !important;
+  border-color:     var(--bs-border-color) !important;
+}
+#timeline .vis-item.vis-background.bg-overbook{
+  background: rgba(255, 67, 67, 0.25);
+  border: none;
+}
+/* axis text */
+.vis-timeline .vis-text {
+  color: var(--bs-text-color);
+  font-family: var(--bs-body-font-family);
+  font-size: var(--bs-body-font-size);
+  font-weight: var(--bs-body-font-weight);
+}
+
+
+.vis-item.allocation {
+  background-color: var(--bs-secondary-bg);
+  color: var(--bs-secondary-text-emphasis);
+  border: 1px solid var(--bs-secondary-border-subtle);
+  border-radius: 0.8rem;
+  border-style: solid;
+}
+
+/* Selected state for vis-timeline bar */
+.vis-item.allocation.vis-selected {
+  background-color: var(--bs-primary-bg-subtle);
+  color: var(--bs-primary-text-emphasis);
+  border-color: var(--bs-primary);
+  box-shadow: 0 0 0 2px var(--bs-primary);
+  border-width: 1px;
+}
+
+
+
+/* Half circle before baseline */
+#timeline .vis-item.baseline::before {
+  content: '';
+  position: absolute;
+  left: -7px; /* Adjust as needed to align with bar */
+  top: 50%;
+  transform: translateY(-50%);
+  width: 8px;
+  height: 8px;
+  background: var(--bs-primary);
+  border-top-left-radius: 8px;
+  border-bottom-left-radius: 8px;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  z-index: 2;
+}
+
+/* Half circle after baseline */
+#timeline .vis-item.baseline::after {
+  content: '';
+  position: absolute;
+  right: -7px; /* Adjust as needed to align with bar end */
+  top: 50%;
+  transform: translateY(-50%);
+  width: 8px;
+  height: 8px;
+  background: var(--bs-primary);
+  border-top-right-radius: 8px;
+  border-bottom-right-radius: 8px;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  z-index: 2;
+}
+
+/* baseline item style */
+#timeline .vis-item.baseline{
+  height:4px; background: var(--bs-secondary); border:none;
+}
+/* diamond marker for baseline boxes */
+#timeline .vis-item.point.baseline { 
+  background:#bbb; border-color:#bbb;
+}
+
+.vis-item.allocation::before {
+  content: ''; /* Placeholder content */
+  position: absolute !important;
+  left: -1px;
+  bottom: 5px;
+  width: 1px;
+  height: 100000px;
+  background-color: var(--bs-secondary);
+  opacity: 0.1;
+  z-index: 1;
+}
+
+.vis-item.allocation::after {
+  content: '';
+  position: absolute !important;
+  left: -16px; /* Adjust as needed to align with the bar */
+  top: 50%;
+  transform: translateY(-50%) rotate(180deg); /* Center vertically and flip arrow left */
+  width: 14px;
+  height: 14px;
+  z-index: 2;
+  /* Draw a left-pointing arrow using borders */
+  border-top: 2px solid var(--bs-success);
+  border-left: 2px solid var(--bs-success);
+  background: transparent;
+  /* Make it look like an arrow head */
+  box-sizing: border-box;
+  /* Optional: smooth edges */
+  border-radius: 2px 0 0 0;
+  /* Optional: add a little shadow for visibility */
+  /* box-shadow: 0 0 2px rgba(0,0,0,0.1); */
+  /* Make it a chevron/arrow */
+  aspect-ratio: 1 / 1;
+  pointer-events: none;
+}
+
+/* resource/group labels */
+.vis-timeline .vis-label {
+  max-width: 200px;
+  background-color: var(--bs-body-bg) !important;
+  color: var(--bs-body-color);
+  border-color: var(--bs-border-color) !important;
+  position: relative;
+  padding: 0.5rem;
+  font-size: small;
+  cursor: pointer;
+}
+
+.vis-label small {
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: inline-block;
+  white-space: nowrap;
+  background-color: var(--bs-secondary);
+  color: white;
+  padding: 0.2em 0.5em;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  margin-top: 0.2em; /* Optional: Add spacing above the badge */
+}
+
+/*.vis-timeline .vis-label .vis-inner {
+  padding: 0.5rem; 
+  font-size: 0.875rem; 
+  color: var(--bs-body-color);
+  background-color: green !important; 
+} */
+
+.vis-timeline {
+  border-color: var(--bs-border-color) !important;
+  border-style: solid;
+  border-radius: 0.5rem;
+}
+
+.vis-timeline .vis-minor {
+  border-right: 1px solid var(--bs-border-color); /* Adjust color and thickness as needed */
+  /* If you need to make the line extend vertically, you might need to adjust height
+     or use pseudo-elements, but border-right usually works for the visible area. */
+}
+
+/* resource table border */
+#tbl-resources,
+#tbl-resources th,
+#tbl-resources td {
+  border-color: var(--bs-border-color) !important;
+}
+
+.row-actions .btn { padding: .15rem .4rem; line-height:1; }
+
+.badge { font-size: .75rem; }
+
+/* ----- timeline pills & task label ----- */
+.pill{
+  display:inline-block;
+  padding:0 .35rem;
+  border-radius:10px;
+  font-size:.65rem;
+  line-height:1.25;
+  margin-left:.25rem;
+  vertical-align:middle;
+  color:var(--bs-white);                /* text inherits Bootstrap white */
+}
+.pill-pct { background:var(--bs-primary); }   /* ← from theme */
+.pill-dur { background:var(--bs-secondary); } /* ← from theme */
+.pill-cost { background:var(--bs-success); } /* ← from theme */
+.task     { font-weight:500; }
+#timeline .pill-pct { background:var(--bs-primary) !important; }
+#timeline .pill-dur { background:var(--bs-secondary) !important; }
+
+@media (max-width: 991.98px) {
+#timeline .vis-label {
+  max-width: 100px;
+  overflow: hidden;
+  font-size: 10px;
+  /* This will make text wrap around it, not necessarily float above other elements cleanly */
+}
+
+}

@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Resource Planner – Interactive Resource Scheduling & KPI Tracking</title>
+
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Resource Planner is a web app for drag‑and‑drop resource scheduling, real‑time KPI tracking, and project planning.">
+
+  <link rel="canonical" href="https://www.quollnet.com/resource-planner">
+
+  <meta property="og:title" content="Resource Planner – Interactive Resource Scheduling Tool">
+  <meta property="og:description" content="Efficient resource scheduling, KPI tracking, and project planning in one intuitive app.">
+  <meta property="og:image" content="https://www.quollnet.com/resource-planner/assets/img/resource-planner-og.png">
+  <meta property="og:url" content="https://www.quollnet.com/resource-planner">
+  <meta name="twitter:card" content="summary_large_image">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "Resource Planner",
+    "url": "https://www.quollnet.com/resource-planner",
+    "applicationCategory": "BusinessApplication",
+    "description": "Interactive resource scheduling and KPI tracking web app.",
+    "offers": {
+      "@type": "Offer",
+      "price": "0.00",
+      "priceCurrency": "USD"
+    },
+    "screenshot": [
+      "https://www.quollnet.com/assets/img/overview-dashboard-quollnet-resource-planner.png",
+      "https://www.quollnet.com/assets/img/timeline-overview-quollnet-resource-planner.png",
+      "https://www.quollnet.com/assets/img/allocation-screen-quollnet-resource-planner.png"
+    ],
+    "operatingSystem": "Web",
+    "browserRequirements": "Requires modern web browser with JavaScript enabled",
+    "additionalType": "https://www.quollnet.com/resource-planner",
+    "sameAs": [
+
+  }
+  </script>
+
+
+  <!-- Local Bootstrap -->
+  <link href="assets/vendor/bootstrap.min.css" rel="stylesheet">
+  <script src="assets/vendor/bootstrap.bundle.min.js" defer></script>
+
+  <!-- Local vis-timeline -->
+  <link href="assets/vendor/vis-timeline-graph2d.min.css" rel="stylesheet">
+
+
+  <!-- App-specific tweaks -->
+  <link href="assets/css/styles.css" rel="stylesheet">
+</head>
+<body class="d-flex flex-column vh-100">
+
+  <!-- ===== Navbar ===== -->
+  <nav class="navbar navbar-expand-lg px-3">
+  <a class="navbar-brand d-flex align-items-center gap-2" href="#">
+    <img src="assets/img/logo.png" alt="" width="50px" height="50px" style="align-self: flex-start;">
+    <div class="lh-sm">
+      <h1 style="font-size: 1.5rem;">Resource Planner</h1>
+      <p class="lead" style="font-size: 12px; margin-top: -5px;">
+        The easiest <strong>resource management</strong> and <strong>resource scheduling</strong> web app
+        <br> complete with real-time <strong>KPI tracking</strong> and project planning tools.
+      </p>
+      
+    </div>
+  </a>
+
+    <div class="ms-auto">
+      <div class="d-flex align-items-center">
+        <div id="planner-display" class="small text-muted">Untitled</div>  <!-- filled by JS -->
+        <a id="btn-edit-name" class="btn btn-link ms-1" style="text-decoration: none;"
+          title="Rename planner">✎</a>
+        </div>
+      <div class="mt-1">
+      <button id="btn-theme" class="btn btn-outline-secondary btn-sm me-2" title="Toggle theme">🌙</button>
+      <button id="btn-new" class="btn btn-outline-secondary btn-sm me-2">🆕 New</button>
+      <button id="btn-open" class="btn btn-outline-secondary btn-sm me-2">📂 Open</button>
+      <button id="btn-save" class="btn btn-outline-secondary btn-sm">💾 Save</button>
+      </div>
+    </div>
+    <!-- hidden file input for Open -->
+    <input type="file" id="file-input" accept=".json" hidden>
+  </nav>
+  <!-- ===== Main content ===== -->
+  <div class="container-fluid py-3 overflow-auto flex-grow-1">
+
+    <!-- Resources and Features Row -->
+    <div class="row">
+      <!-- Resources table column -->
+      <div class="col-lg position-relative">
+      <!-- Only the table scrolls, not the whole screen -->
+      <div class="border rounded-3 p-2" style="max-width: 900px;">
+        <div class="d-flex align-items-center mb-1" style="max-width: 900px;">
+        <h5 class="mb-0">Resources</h5>
+
+        <div class="ms-auto">
+          <button id="btn-add-resource" class="btn btn-outline-success btn-sm">
+          + Add resource
+          </button>
+          <button class="btn btn-outline-secondary btn-sm me-2" type="button" data-bs-toggle="collapse" data-bs-target="#resources-table, #features-list" aria-expanded="true" aria-controls="resources-table features-list" title="Hide/show resources">
+          ⬍
+        </button>
+        </div>
+        </div>
+        <div class="table-responsive collapse show" id="resources-table" style="max-width: 900px; max-height: 280px; overflow-y:auto; overflow-x:hidden;">
+        <hr class="m-0">
+        
+        <table id="tbl-resources" class="table table-sm table-hover w-100 table-striped">
+        <thead style="position: sticky; top: 0; z-index: 2;">
+          <tr>
+          <th>
+            Name
+          </th>
+          <th class="d-none d-md-table-cell">Class</th>
+          <th>Description</th>
+          <th class="d-none d-md-table-cell" style="min-width: 100px;">Cost per hour</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+        </table>
+        </div>
+      </div>
+      </div>
+      <!-- Features column -->
+      <div class="col-lg mt-4 mt-lg-0">
+      <div class="d-flex align-items-center mb-2">
+        <h2 class="mb-0" style="font-size: 1.25rem;">Key Features</h2>
+        <button class="btn btn-outline-secondary btn-sm ms-2" type="button" data-bs-toggle="collapse" data-bs-target="#features-list" aria-expanded="true" aria-controls="features-list" title="Hide/show features">
+        ⬍
+        </button>
+      </div>
+      <div class="collapse show" id="features-list">
+        <ul style="font-size: 0.75em;">
+        <li class="text-muted"><strong>Drag-and-drop resource scheduling</strong> for faster project planning</li>
+        <li class="text-muted">Full <strong>resource management</strong> dashboard with capacity views</li>
+        <li class="text-muted">Live <strong>KPI tracking</strong> and utilization analytics</li>
+        <li class="text-muted">JSON import/export for easy data exchange</li>
+        <li class="text-muted"><strong>Capacity planning & resource forecasting</strong> to anticipate project needs and prevent over-allocation</li>
+        <li class="text-muted"><strong>Customizable dashboards & real-time resource utilization analytics</strong> for data-driven decision making</li>
+        </ul>
+      </div>
+      </div>
+    </div>
+
+    <!-- Timeline -->
+    <div class="d-flex align-items-center mt-4 mb-2">
+      <h5 class="mb-0">Schedule</h5>
+      <div class="ms-auto">
+        <button id="btn-edit-alloc" class="btn btn-outline-secondary btn-sm me-2" disabled>✎</button>
+        <button id="btn-del-alloc" class="btn btn-outline-secondary btn-sm me-2" disabled>🗑</button>
+        <button id="btn-add-allocation" class="btn btn-outline-success btn-sm me-2" title="Add new resource allocation for project scheduling">
+          + Allocate
+        </button>
+      </div>
+    </div>
+
+    <div id="timelineWrap" style="touch-action:none; overscroll-behavior:contain;">
+      <div id="timeline" style="height:400px;"></div>
+    </div>
+
+  <!-- ===== Resource Modal ===== -->
+  <div class="modal fade" id="modal-resource" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <form class="modal-content novalidate">
+        <div class="modal-header"><h5 class="modal-title">Resource</h5></div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Name</label>
+            <input id="res-name" class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Class</label>
+            <input id="res-class" class="form-control">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Description</label>
+            <textarea id="res-desc" class="form-control" rows="2"></textarea>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Hourly cost</label>
+            <input type="number"
+                  id="res-cost"
+                  class="form-control"
+                  step="0.01" min="0" placeholder="0.00">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button id="res-save" type="submit" class="btn btn-primary">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===== Allocation Modal ===== -->
+  <div class="modal fade" id="modal-allocation" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <form class="modal-content novalidate">
+        <div class="modal-header"><h5 class="modal-title">Allocation</h5></div>
+        <div class="modal-body">
+          <!-- -- Resource picker -- -->
+          <div class="mb-3">
+            <label class="form-label">Resource</label>
+            <select id="alloc-res" class="form-select" required></select>
+          </div>
+          <!-- -- Start / End pickers -- -->
+          <div class="row g-3 mb-3">
+            <div class="col-sm-6">
+              <label class="form-label">Start</label>
+              <input id="alloc-start" type="date" class="form-control" required>
+            </div>
+            <div class="col-sm-6">
+              <label class="form-label">End <small class="text-muted">(leave blank = box)</small></label>
+              <input id="alloc-end" type="date" class="form-control">
+            </div>
+          </div>
+
+          <!-- percent allocated -->
+          <div class="row g-3 mb-3">
+            <div class="col-6 col-sm-4">
+              <label class="form-label">% Allocated</label>
+              <input type="number" id="alloc-pct" class="form-control" min=1 value=100>
+            </div>
+            <div class="col-3 align-text-end">
+              <div class="text-muted ms-auto">Cost: </div>
+              <div class="badge bg-success" id="alloc-cost">0.00</div>
+            </div>
+            <!-- -- % + live duration pill -- -->
+            <div class="col-3 align-items-end">
+              <span id="alloc-dur" class="text-muted">Duration:</span>
+              <span id="alloc-dur-pill" class="badge bg-secondary ms-auto d-none"></span>
+            </div>
+          </div>
+
+          <!-- -- Task / Notes -->
+          <div class="mb-3">
+            <label class="form-label">Task / Notes</label>
+            <textarea id="alloc-notes" class="form-control" rows="2"></textarea>
+          </div>
+
+          <!-- -- Baseline start / end -->
+          <div id="bl-row" class="row g-3 mb-3 d-none">
+            <div class="col-6">
+              <label class="form-label">Baseline start</label>
+              <input id="alloc-bl-start"  class="form-control" readonly>
+            </div>
+            <div class="col-6">
+              <label class="form-label">Baseline end</label>
+              <input id="alloc-bl-end" class="form-control" readonly>
+            </div>
+        </div>
+        </div>
+
+        <div class="modal-footer">
+          <button id="btn-reset-baseline" class="btn btn-outline-secondary">Reset Baseline</button>
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button id="alloc-save" type="submit" class="btn btn-primary">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===== Planner-name Modal ===== -->
+  <div class="modal fade" id="modal-planner" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <form class="modal-content">
+        <div class="modal-header"><h5 class="modal-title">Planner name</h5></div>
+        <div class="modal-body">
+          <input id="planner-input" class="form-control" required>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button class="btn btn-primary">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Reusable Bootstrap Modal -->
+  <div class="modal fade" id="app-modal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="app-modal-title">Modal</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body" id="app-modal-body">
+          <!-- Message will be injected here -->
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" id="app-modal-cancel" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary" id="app-modal-ok">OK</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<footer class="text-center small py-3">
+  Resource Planner is a free, web-based <strong>resource management</strong> and <strong>project scheduling</strong> tool with built-in <strong>KPI tracking</strong>—no install required.
+</footer>
+
+
+  <!-- ===== Your own JS modules ===== -->
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,591 @@
+{
+  "meta": {
+    "planner_name": "Project Alpha Resource Plan - Revised",
+    "created_at": "2025-07-20T11:36:08Z",
+    "version": "1.1"
+  },
+  "resources": [
+    {
+      "id": "human-1",
+      "name": "John Doe",
+      "class": "human",
+      "description": "Senior Project Manager",
+      "cost_per_hour": 150
+    },
+    {
+      "id": "human-2",
+      "name": "Jane Smith",
+      "class": "human",
+      "description": "Civil Engineer",
+      "cost_per_hour": 120
+    },
+    {
+      "id": "human-3",
+      "name": "Michael Brown",
+      "class": "human",
+      "description": "Architect",
+      "cost_per_hour": 130
+    },
+    {
+      "id": "human-4",
+      "name": "Emily White",
+      "class": "human",
+      "description": "Site Supervisor",
+      "cost_per_hour": 100
+    },
+    {
+      "id": "human-5",
+      "name": "David Green",
+      "class": "human",
+      "description": "Electrician",
+      "cost_per_hour": 80
+    },
+    {
+      "id": "human-6",
+      "name": "Sarah Black",
+      "class": "human",
+      "description": "Plumber",
+      "cost_per_hour": 85
+    },
+    {
+      "id": "heavy-eq-1",
+      "name": "Excavator XL-3000",
+      "class": "construction equipment - heavy",
+      "description": "Large hydraulic excavator",
+      "cost_per_hour": 250
+    },
+    {
+      "id": "heavy-eq-2",
+      "name": "Bulldozer D9T",
+      "class": "construction equipment - heavy",
+      "description": "Track-type tractor",
+      "cost_per_hour": 280
+    },
+    {
+      "id": "light-eq-1",
+      "name": "Concrete Mixer CM-500",
+      "class": "construction equipment - light",
+      "description": "Portable concrete mixer",
+      "cost_per_hour": 40
+    },
+    {
+      "id": "light-eq-2",
+      "name": "Jackhammer JH-200",
+      "class": "construction equipment - light",
+      "description": "Electric demolition hammer",
+      "cost_per_hour": 30
+    },
+    {
+      "id": "space-1",
+      "name": "Main Conference Room",
+      "class": "spaces (rooms)",
+      "description": "Large meeting space with projector",
+      "cost_per_hour": 75
+    },
+    {
+      "id": "space-2",
+      "name": "Site Office Trailer",
+      "class": "spaces (rooms)",
+      "description": "On-site administrative office",
+      "cost_per_hour": 50
+    },
+    {
+      "id": "space-3",
+      "name": "Break Room A",
+      "class": "spaces (rooms)",
+      "description": "Employee break area",
+      "cost_per_hour": 20
+    },
+    {
+      "id": "vehicle-1",
+      "name": "Ford F-150",
+      "class": "vehicles",
+      "description": "Project Manager's truck",
+      "cost_per_hour": 60
+    },
+    {
+      "id": "vehicle-2",
+      "name": "Toyota Hilux",
+      "class": "vehicles",
+      "description": "Site Vehicle",
+      "cost_per_hour": 55
+    },
+    {
+      "id": "human-7",
+      "name": "Chris Adams",
+      "class": "human",
+      "description": "Safety Officer",
+      "cost_per_hour": 95
+    },
+    {
+      "id": "human-8",
+      "name": "Olivia Davis",
+      "class": "human",
+      "description": "HVAC Technician",
+      "cost_per_hour": 90
+    },
+    {
+      "id": "heavy-eq-3",
+      "name": "Crane RT-500",
+      "class": "construction equipment - heavy",
+      "description": "Rough Terrain Crane",
+      "cost_per_hour": 350
+    },
+    {
+      "id": "light-eq-3",
+      "name": "Scaffolding Set",
+      "class": "construction equipment - light",
+      "description": "Modular scaffolding for elevated work",
+      "cost_per_hour": 25
+    },
+    {
+      "id": "vehicle-3",
+      "name": "Cargo Van CV-800",
+      "class": "vehicles",
+      "description": "Material transport van",
+      "cost_per_hour": 45
+    }
+  ],
+  "allocations": [
+    {
+      "id": "alloc-1",
+      "resource_id": "human-1",
+      "task": "Overall Project Management",
+      "start": "2025-08-01T09:00:00Z",
+      "end": "2026-08-01T17:00:00Z",
+      "allocation_pct": 100,
+      "baseline_start": "2025-08-01T09:00:00Z",
+      "baseline_end": "2026-08-01T17:00:00Z",
+      "cost": 600000
+    },
+    {
+      "id": "alloc-2",
+      "resource_id": "human-2",
+      "task": "Structural Design Review - Phase 1",
+      "start": "2025-08-05T09:00:00Z",
+      "end": "2025-09-15T17:00:00Z",
+      "allocation_pct": 80,
+      "baseline_start": "2025-08-01T09:00:00Z",
+      "baseline_end": "2025-09-10T17:00:00Z",
+      "cost": 30720
+    },
+    {
+      "id": "alloc-3",
+      "resource_id": "human-2",
+      "task": "Structural Design Review - Phase 2",
+      "start": "2025-09-10T09:00:00Z",
+      "end": "2025-10-30T17:00:00Z",
+      "allocation_pct": 70,
+      "baseline_start": "2025-09-15T09:00:00Z",
+      "baseline_end": "2025-11-05T17:00:00Z",
+      "cost": 36960
+    },
+    {
+      "id": "alloc-4",
+      "resource_id": "human-2",
+      "task": "Field Inspection Support",
+      "start": "2025-09-01T13:00:00Z",
+      "end": "2025-09-20T17:00:00Z",
+      "allocation_pct": 50,
+      "baseline_start": "2025-09-01T09:00:00Z",
+      "baseline_end": "2025-09-20T17:00:00Z",
+      "cost": 7200
+    },
+    {
+      "id": "alloc-5",
+      "resource_id": "heavy-eq-1",
+      "task": "Foundation Excavation",
+      "start": "2025-08-15T08:00:00Z",
+      "end": "2025-09-15T16:00:00Z",
+      "allocation_pct": 100,
+      "baseline_start": "2025-08-15T08:00:00Z",
+      "baseline_end": "2025-09-15T16:00:00Z",
+      "cost": 80000
+    },
+    {
+      "id": "alloc-6",
+      "resource_id": "heavy-eq-1",
+      "task": "Trenching for Utilities",
+      "start": "2025-09-01T08:00:00Z",
+      "end": "2025-09-20T16:00:00Z",
+      "allocation_pct": 60,
+      "baseline_start": "2025-09-05T08:00:00Z",
+      "baseline_end": "2025-09-25T16:00:00Z",
+      "cost": 18000
+    },
+    {
+      "id": "alloc-7",
+      "resource_id": "human-4",
+      "task": "Site Preparation Supervision - Early Phase",
+      "start": "2025-08-01T07:00:00Z",
+      "end": "2025-10-31T15:00:00Z",
+      "allocation_pct": 90,
+      "baseline_start": "2025-08-01T07:00:00Z",
+      "baseline_end": "2025-10-31T15:00:00Z",
+      "cost": 64800
+    },
+    {
+      "id": "alloc-8",
+      "resource_id": "human-4",
+      "task": "Site Preparation Supervision - Mid Phase",
+      "start": "2025-10-15T07:00:00Z",
+      "end": "2026-01-31T15:00:00Z",
+      "allocation_pct": 80,
+      "baseline_start": "2025-10-20T07:00:00Z",
+      "baseline_end": "2026-02-05T15:00:00Z",
+      "cost": 57600
+    },
+    {
+      "id": "alloc-9",
+      "resource_id": "light-eq-1",
+      "task": "Concrete Pouring - Slab 1",
+      "start": "2025-09-01T08:00:00Z",
+      "end": "2025-09-15T16:00:00Z",
+      "allocation_pct": 100,
+      "baseline_start": "2025-09-01T08:00:00Z",
+      "baseline_end": "2025-09-15T16:00:00Z",
+      "cost": 4480
+    },
+    {
+      "id": "alloc-10",
+      "resource_id": "light-eq-1",
+      "task": "Concrete Pouring - Slab 2",
+      "start": "2025-09-10T08:00:00Z",
+      "end": "2025-09-25T16:00:00Z",
+      "allocation_pct": 70,
+      "baseline_start": "2025-09-12T08:00:00Z",
+      "baseline_end": "2025-09-27T16:00:00Z",
+      "cost": 3360
+    },
+    {
+      "id": "alloc-11",
+      "resource_id": "human-3",
+      "task": "Architectural Design Finalization",
+      "start": "2025-08-10T09:00:00Z",
+      "end": "2025-10-30T17:00:00Z",
+      "allocation_pct": 100,
+      "baseline_start": "2025-08-10T09:00:00Z",
+      "baseline_end": "2025-10-30T17:00:00Z",
+      "cost": 104000
+    },
+    {
+      "id": "alloc-12",
+      "resource_id": "human-3",
+      "task": "Interior Design Consultation",
+      "start": "2025-10-01T09:00:00Z",
+      "end": "2025-12-15T17:00:00Z",
+      "allocation_pct": 60,
+      "baseline_start": "2025-09-25T09:00:00Z",
+      "baseline_end": "2025-12-05T17:00:00Z",
+      "cost": 37440
+    },
+    {
+      "id": "alloc-13",
+      "resource_id": "vehicle-1",
+      "task": "Project Manager's Site Transport",
+      "start": "2025-08-01T08:00:00Z",
+      "end": "2026-08-01T16:00:00Z",
+      "allocation_pct": 100,
+      "baseline_start": "2025-08-01T08:00:00Z",
+      "baseline_end": "2026-08-01T16:00:00Z",
+      "cost": 120000
+    },
+    {
+      "id": "alloc-14",
+      "resource_id": "vehicle-1",
+      "task": "Off-site Material Procurement",
+      "start": "2025-09-01T09:00:00Z",
+      "end": "2025-10-30T17:00:00Z",
+      "allocation_pct": 40,
+      "baseline_start": "2025-08-25T09:00:00Z",
+      "baseline_end": "2025-10-20T17:00:00Z",
+      "cost": 9600
+    },
+    {
+      "id": "alloc-15",
+      "resource_id": "space-1",
+      "task": "Weekly Project Meetings",
+      "start": "2025-08-01T10:00:00Z",
+      "end": "2026-08-01T12:00:00Z",
+      "allocation_pct": 100,
+      "baseline_start": "2025-08-01T10:00:00Z",
+      "baseline_end": "2026-08-01T12:00:00Z",
+      "cost": 78000
+    },
+    {
+      "id": "alloc-16",
+      "resource_id": "space-1",
+      "task": "Client Review Sessions",
+      "start": "2025-09-01T13:00:00Z",
+      "end": "2025-12-31T17:00:00Z",
+      "allocation_pct": 50,
+      "baseline_start": "2025-09-05T13:00:00Z",
+      "baseline_end": "2026-01-05T17:00:00Z",
+      "cost": 21000
+    },
+    {
+      "id": "alloc-17",
+      "resource_id": "human-5",
+      "task": "Electrical System Installation - Phase A",
+      "start": "2025-10-01T09:00:00Z",
+      "end": "2025-12-15T17:00:00Z",
+      "allocation_pct": 90,
+      "baseline_start": "2025-09-25T09:00:00Z",
+      "baseline_end": "2025-12-10T17:00:00Z",
+      "cost": 23040
+    },
+    {
+      "id": "alloc-18",
+      "resource_id": "human-5",
+      "task": "Electrical System Installation - Phase B",
+      "start": "2025-12-01T09:00:00Z",
+      "end": "2026-02-28T17:00:00Z",
+      "allocation_pct": 70,
+      "baseline_start": "2025-11-25T09:00:00Z",
+      "baseline_end": "2026-02-20T17:00:00Z",
+      "cost": 18480
+    },
+    {
+      "id": "alloc-19",
+      "resource_id": "human-6",
+      "task": "Plumbing Rough-in - Level 1",
+      "start": "2025-10-15T08:00:00Z",
+      "end": "2025-12-31T16:00:00Z",
+      "allocation_pct": 80,
+      "baseline_start": "2025-10-10T08:00:00Z",
+      "baseline_end": "2025-12-25T16:00:00Z",
+      "cost": 23120
+    },
+    {
+      "id": "alloc-20",
+      "resource_id": "human-6",
+      "task": "Plumbing Fixture Installation",
+      "start": "2026-01-10T08:00:00Z",
+      "end": "2026-03-20T16:00:00Z",
+      "allocation_pct": 60,
+      "baseline_start": "2026-01-05T08:00:00Z",
+      "baseline_end": "2026-03-15T16:00:00Z",
+      "cost": 15840
+    },
+    {
+      "id": "alloc-21",
+      "resource_id": "heavy-eq-2",
+      "task": "Land Grading - Section A",
+      "start": "2025-09-20T07:00:00Z",
+      "end": "2025-10-10T15:00:00Z",
+      "allocation_pct": 100,
+      "baseline_start": "2025-09-20T07:00:00Z",
+      "baseline_end": "2025-10-10T15:00:00Z",
+      "cost": 50400
+    },
+    {
+      "id": "alloc-22",
+      "resource_id": "heavy-eq-2",
+      "task": "Land Grading - Section B",
+      "start": "2025-10-05T07:00:00Z",
+      "end": "2025-10-25T15:00:00Z",
+      "allocation_pct": 80,
+      "baseline_start": "2025-10-10T07:00:00Z",
+      "baseline_end": "2025-10-30T15:00:00Z",
+      "cost": 35840
+    },
+    {
+      "id": "alloc-23",
+      "resource_id": "light-eq-2",
+      "task": "Demolition Work - Structure A",
+      "start": "2025-08-08T08:00:00Z",
+      "end": "2025-08-22T16:00:00Z",
+      "allocation_pct": 100,
+      "baseline_start": "2025-08-05T08:00:00Z",
+      "baseline_end": "2025-08-19T16:00:00Z",
+      "cost": 3360
+    },
+    {
+      "id": "alloc-24",
+      "resource_id": "light-eq-2",
+      "task": "Demolition Work - Structure B",
+      "start": "2025-08-18T08:00:00Z",
+      "end": "2025-09-01T16:00:00Z",
+      "allocation_pct": 50,
+      "baseline_start": "2025-08-20T08:00:00Z",
+      "baseline_end": "2025-09-03T16:00:00Z",
+      "cost": 1680
+    },
+    {
+      "id": "alloc-25",
+      "resource_id": "space-2",
+      "task": "Project Office Operations - Core",
+      "start": "2025-08-01T09:00:00Z",
+      "end": "2026-08-01T17:00:00Z",
+      "allocation_pct": 100,
+      "baseline_start": "2025-08-01T09:00:00Z",
+      "baseline_end": "2026-08-01T17:00:00Z",
+      "cost": 208000
+    },
+    {
+      "id": "alloc-26",
+      "resource_id": "human-7",
+      "task": "Daily Safety Briefings",
+      "start": "2025-08-01T08:00:00Z",
+      "end": "2026-08-01T09:00:00Z",
+      "allocation_pct": 70,
+      "baseline_start": "2025-08-01T08:00:00Z",
+      "baseline_end": "2026-08-01T09:00:00Z",
+      "cost": 133400
+    },
+    {
+      "id": "alloc-27",
+      "resource_id": "human-7",
+      "task": "Site Safety Audit",
+      "start": "2025-09-01T10:00:00Z",
+      "end": "2025-11-30T16:00:00Z",
+      "allocation_pct": 50,
+      "baseline_start": "2025-09-05T10:00:00Z",
+      "baseline_end": "2025-12-05T16:00:00Z",
+      "cost": 28500
+    },
+    {
+      "id": "alloc-28",
+      "resource_id": "vehicle-2",
+      "task": "Material Delivery - Heavy",
+      "start": "2025-08-10T07:00:00Z",
+      "end": "2026-07-30T15:00:00Z",
+      "allocation_pct": 60,
+      "baseline_start": "2025-08-10T07:00:00Z",
+      "baseline_end": "2026-07-30T15:00:00Z",
+      "cost": 68328
+    },
+    {
+      "id": "alloc-29",
+      "resource_id": "vehicle-2",
+      "task": "Material Delivery - Light",
+      "start": "2025-09-01T09:00:00Z",
+      "end": "2026-06-30T17:00:00Z",
+      "allocation_pct": 40,
+      "baseline_start": "2025-09-05T09:00:00Z",
+      "baseline_end": "2026-07-05T17:00:00Z",
+      "cost": 44880
+    },
+    {
+      "id": "alloc-30",
+      "resource_id": "human-8",
+      "task": "HVAC System Installation - Zone 1",
+      "start": "2025-11-01T09:00:00Z",
+      "end": "2026-01-15T17:00:00Z",
+      "allocation_pct": 80,
+      "baseline_start": "2025-10-25T09:00:00Z",
+      "baseline_end": "2026-01-10T17:00:00Z",
+      "cost": 23040
+    },
+    {
+      "id": "alloc-31",
+      "resource_id": "human-8",
+      "task": "HVAC System Installation - Zone 2",
+      "start": "2026-01-01T09:00:00Z",
+      "end": "2026-03-31T17:00:00Z",
+      "allocation_pct": 60,
+      "baseline_start": "2025-12-25T09:00:00Z",
+      "baseline_end": "2026-03-25T17:00:00Z",
+      "cost": 21600
+    },
+    {
+      "id": "alloc-32",
+      "resource_id": "heavy-eq-3",
+      "task": "Steel Structure Erection - Phase 1",
+      "start": "2025-10-25T08:00:00Z",
+      "end": "2025-11-30T16:00:00Z",
+      "allocation_pct": 100,
+      "baseline_start": "2025-10-25T08:00:00Z",
+      "baseline_end": "2025-11-30T16:00:00Z",
+      "cost": 63000
+    },
+    {
+      "id": "alloc-33",
+      "resource_id": "heavy-eq-3",
+      "task": "Steel Structure Erection - Phase 2",
+      "start": "2025-11-20T08:00:00Z",
+      "end": "2026-01-10T16:00:00Z",
+      "allocation_pct": 90,
+      "baseline_start": "2025-11-25T08:00:00Z",
+      "baseline_end": "2026-01-15T16:00:00Z",
+      "cost": 68040
+    },
+    {
+      "id": "alloc-34",
+      "resource_id": "light-eq-3",
+      "task": "Facade Installation Support - Area A",
+      "start": "2026-01-10T08:00:00Z",
+      "end": "2026-02-15T16:00:00Z",
+      "allocation_pct": 100,
+      "baseline_start": "2026-01-05T08:00:00Z",
+      "baseline_end": "2026-02-10T16:00:00Z",
+      "cost": 6600
+    },
+    {
+      "id": "alloc-35",
+      "resource_id": "light-eq-3",
+      "task": "Facade Installation Support - Area B",
+      "start": "2026-02-01T08:00:00Z",
+      "end": "2026-03-10T16:00:00Z",
+      "allocation_pct": 70,
+      "baseline_start": "2026-02-05T08:00:00Z",
+      "baseline_end": "2026-03-15T16:00:00Z",
+      "cost": 4900
+    },
+    {
+      "id": "alloc-36",
+      "resource_id": "vehicle-3",
+      "task": "Tool & Equipment Movement - Daily",
+      "start": "2025-08-01T08:00:00Z",
+      "end": "2026-08-01T16:00:00Z",
+      "allocation_pct": 100,
+      "baseline_start": "2025-08-01T08:00:00Z",
+      "baseline_end": "2026-08-01T16:00:00Z",
+      "cost": 93600
+    },
+    {
+      "id": "alloc-37",
+      "resource_id": "vehicle-3",
+      "task": "Off-site Disposal Runs",
+      "start": "2025-09-15T09:00:00Z",
+      "end": "2026-03-15T17:00:00Z",
+      "allocation_pct": 30,
+      "baseline_start": "2025-09-20T09:00:00Z",
+      "baseline_end": "2026-03-20T17:00:00Z",
+      "cost": 15552
+    },
+    {
+      "id": "alloc-38",
+      "resource_id": "space-3",
+      "task": "Worker Breaks - Morning",
+      "start": "2025-08-01T09:00:00Z",
+      "end": "2026-08-01T09:30:00Z",
+      "allocation_pct": 100,
+      "baseline_start": "2025-08-01T09:00:00Z",
+      "baseline_end": "2026-08-01T09:30:00Z",
+      "cost": 5200
+    },
+    {
+      "id": "alloc-39",
+      "resource_id": "space-3",
+      "task": "Worker Breaks - Afternoon",
+      "start": "2025-08-01T14:00:00Z",
+      "end": "2026-08-01T14:30:00Z",
+      "allocation_pct": 100,
+      "baseline_start": "2025-08-01T14:00:00Z",
+      "baseline_end": "2026-08-01T14:30:00Z",
+      "cost": 5200
+    },
+    {
+      "id": "alloc-40",
+      "resource_id": "human-1",
+      "task": "Risk Assessment Review",
+      "start": "2025-10-01T10:00:00Z",
+      "end": "2025-10-15T12:00:00Z",
+      "allocation_pct": 50,
+      "baseline_start": "2025-09-25T10:00:00Z",
+      "baseline_end": "2025-10-10T12:00:00Z",
+      "cost": 6000
+    }
+  ]
+}
