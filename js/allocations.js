@@ -1,18 +1,15 @@
 /* allocations.js – overlap checks & resource picker */
-
+import { plannedHours } from './utils.js'
 /* ---------- generic helpers ---------- */
 export const isBox = a => !a.end;                    // start-only item
 
-export function productiveHours(a){
-  return isBox(a) ? 0 : durationHours(a) * (a.allocation_pct / 100);
-}
-
 export function durationHours(a){
   if (isBox(a)) return 0;
-  return (new Date(a.end) - new Date(a.start)) / 36e5;
+  return (new Date(a.end) - new Date(a.start)+1) / 36e5;
 }
 
 export function durationDays(a){
+  console.log('durationDays: hours', durationHours(a));
   return +(durationHours(a) / 24).toFixed(1);        // 1 decimal, e.g. “3.5”
 }
 
@@ -63,8 +60,10 @@ export function buildOverbookBands(plan){
 }
 
 export function calcCost(allocation, plan){
-  const res   = plan.resources.find(r => r.id === allocation.resource_id) || { cost_per_hour: 0 };
-  const hours = durationHours(allocation);           // handles box = 0 h
-  return +(hours * (allocation.allocation_pct/100) * res.cost_per_hour).toFixed(2);
-
+  console.log('calcCost called', allocation);
+  const res = plan.resources.find(r => r.id === allocation.resource_id) || { cost_per_hour: 0 };
+  const hours = plannedHours(allocation);         // ← NEW: calendar-aware
+  console.log('productiveHours:', hours);
+  console.log('returning cost:', +(hours * res.cost_per_hour).toFixed(2));
+  return +(hours * res.cost_per_hour).toFixed(2);
 }

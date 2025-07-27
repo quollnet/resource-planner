@@ -9,8 +9,8 @@
 import { buildDailyUsage, buildDailyUsageFrom } from './analytics.js';
 import { resCostMetrics } from './res_drawer.js';
 import { $ } from './ui.js';
+import { daysBetween, workingHours } from './utils.js'
 
-const HOURS_PER_DAY = 8;  // adjust if your org defines a different "full day"
 const kpiCache = new WeakMap();
 
 // only include resources that actually appear in any allocation
@@ -18,7 +18,38 @@ function getUsedResourceIds(plan) {
   return new Set(plan.allocations.map(a => a.resource_id));
 }
 
+/* -------------------------------------------------------------- *
+ *  Sum working hours across an entire horizon.
+ *  @param {Date} horizonStart  first calendar day of the horizon
+ *  @param {number} days        how many consecutive days
+ *  @returns {number}           total working hours in the span
+ * -------------------------------------------------------------- */
+function horizonWorkingHours(horizonStart, days){
+  let hrs = 0;
+  for (let i = 0; i < days; i++){
+    const d = new Date(horizonStart);
+    d.setUTCDate(horizonStart.getUTCDate() + i);
+    hrs += workingHours(d);              // today 8h; later calendar driven
+  }
+  return hrs;
+}
 
+
+/* --- average % over a fixed window --------------------------------------- */
+function groupAvgH(dailyArr, totalDays){
+  const byRes = new Map();                           // id → {name,sum}
+  dailyArr.forEach(r=>{
+    const rec = byRes.get(r.resource_id)
+          || { resource_id:r.resource_id, resource_name:r.resource_name, sum:0 };
+    rec.sum += r.pct;
+    byRes.set(r.resource_id, rec);
+  });
+  /* div by (totalDays*100) → utilisation %, 0 if never used */
+  return Array.from(byRes.values()).map(r=>({
+    ...r,
+    pct: 100 * r.sum / (totalDays * 100)
+  }));
+}
 
 /*****************************************************************************************
  * Public API
@@ -27,20 +58,36 @@ let currentPlan = null;
 
 function kpiAvgUtil(dArr, days){
   const usedCount   = getUsedResourceIds(currentPlan).size || 1;
-   const totalCapPct = usedCount * days * 100;
+  console.log('kpiAvgUtil: usedCount', usedCount, 'days', days);
+  const totalCapPct = usedCount * days * 100;
+  console.log('kpiAvgUtil: totalCapPct', totalCapPct);
+  console.log('kpiAvgUtil: dArr', dArr);
   return totalCapPct ? dArr.reduce((s,r)=>s+r.pct,0)/totalCapPct*100 : 0;
 }
-function kpiIdleRows(dArr, days){
-  const usedResIds = getUsedResourceIds(currentPlan);
-  const idle = new Map();
-  // start each used resource fully idle
-  usedResIds.forEach(id => idle.set(id, days * 100));
-  dArr.forEach(r=>idle.set(r.resource_id, idle.get(r.resource_id)-r.pct));
-  return Array.from(idle, ([id,pct])=>({
-    resource_id:id,
-    resource_name:plan.resources.find(x=>x.id===id)?.name||id,
-    hours:+(pct/100*8).toFixed(1)
-  }));
+
+function kpiIdleRows(dArr, days, horizonStart){
+  /* 1 ── capacity across the horizon (calendar-aware) */
+  const totalHrs = horizonWorkingHours(horizonStart, days);      // same for every resource
+
+  /* 2 ── accumulate USED hours per resource */
+  const usedHours = new Map();                                   // resId → hrs used
+  getUsedResourceIds(currentPlan).forEach(id => usedHours.set(id, 0));
+
+  dArr.forEach(r => {
+    const hrsToday = workingHours(new Date(r.day));              // 8h today (later calendar)
+    usedHours.set(r.resource_id,
+      usedHours.get(r.resource_id) + hrsToday * r.pct / 100);
+  });
+
+  /* 3 ── derive idle hours = capacity – used */
+  return Array.from(usedHours, ([id, used]) => {
+    const idleHrs = Math.max(0, totalHrs - used);
+    return {
+      resource_id: id,
+      resource_name: currentPlan.resources.find(x=>x.id===id)?.name || id,
+      hours: +idleHrs.toFixed(1)
+    };
+  });
 }
 
 export function refreshKpis (plan){
@@ -48,25 +95,28 @@ export function refreshKpis (plan){
   currentPlan = plan;
 
   /* ---------- horizon ---------- */
-  const starts = plan.allocations.map(a=>new Date(a.start));
-  const ends   = plan.allocations.filter(a=>a.end).map(a=>new Date(a.end));
+  const starts = plan.allocations.map(a => new Date(a.start));
+  const ends   = plan.allocations.filter(a => a.end)
+                                .map(a => new Date(a.end));
   const horizonStart = new Date(Math.min(...starts));
   const horizonEnd   = new Date(Math.max(...ends, horizonStart));
-  const horizonDays  = Math.max(1, (horizonEnd-horizonStart)/86400000+1);
-
-  const todayIso = new Date().toISOString().slice(0,10);
-  const horizonDaysF = Math.max(1, (horizonEnd-new Date(todayIso))/86400000+1);
+  const horizonDays  = daysBetween(horizonStart, horizonEnd);
+  const today        = new Date();
+  // First day of the “future” window = whichever comes later:
+  const futureStart  = today < horizonStart ? horizonStart : today;
+  const horizonDaysF = daysBetween(futureStart, horizonEnd);
 
   /* ---------- daily tables ---------- */
   const dailyAll = buildDailyUsage(plan);
-  const dailyFut = buildDailyUsageFrom(plan, todayIso);
+  const dailyFut = buildDailyUsageFrom(plan, futureStart.toISOString());
 
   /* ---------- core KPIs ---------- */
   const utilAll   = kpiAvgUtil(dailyAll, horizonDays);
   const utilFut   = kpiAvgUtil(dailyFut, horizonDaysF);
 
-  const idleRowsAll = kpiIdleRows(dailyAll, horizonDays);
-  const idleRowsFut = kpiIdleRows(dailyFut, horizonDaysF);
+  const idleRowsAll = kpiIdleRows(dailyAll, horizonDays, horizonStart);
+  const idleRowsFut = kpiIdleRows(dailyFut, horizonDaysF, futureStart);
+
   const idleAllTot  = idleRowsAll.reduce((s,r)=>s+r.hours,0);
   const idleFutTot  = idleRowsFut.reduce((s,r)=>s+r.hours,0);
 
@@ -103,6 +153,7 @@ export function refreshKpis (plan){
     dailyAll,  idleRowsAll,  overAll,  utilAll,
     dailyFut,  idleRowsFut,  overFut,  utilFut,
     delayDays, budgetD,
+    horizonDays, horizonDaysF
   });
 }
 
@@ -116,12 +167,27 @@ function showDrawer(which){
   const title = $('#kpiDrawerLabel');
 
   switch(which){
-    case 'util':   title.textContent='Average utilisation (all)';   body.innerHTML = makeTable(groupAvg(c.dailyAll),'% Util',r=>r.pct.toFixed(1)+'%'); break;
+    case 'util':   title.textContent='Average utilisation (all)';
+        body.innerHTML = makeTable(
+        groupAvgH(c.dailyAll, c.horizonDays),
+        '% Util',
+        r=>r.pct.toFixed(1)+'%');
+        break;
     case 'idle':   title.textContent='Idle hours (all)';           body.innerHTML = makeTable(c.idleRowsAll,'Hours',r=>r.hours.toFixed(1)); break;
     case 'over':   title.textContent='Over-capacity resources (all)'; drawerOver(c.dailyAll,c.overAll); break;
 
-    case 'utilF':  title.textContent='Average utilisation (future)'; body.innerHTML = makeTable(groupAvg(c.dailyFut),'% Util',r=>r.pct.toFixed(1)+'%'); break;
-    case 'idleF':  title.textContent='Idle hours (future)';         body.innerHTML = makeTable(c.idleRowsFut,'Hours',r=>r.hours.toFixed(1)); break;
+    case 'utilF':  title.textContent='Average utilisation (future)';
+                        body.innerHTML = makeTable(
+                        groupAvgH(c.dailyFut, c.horizonDaysF),
+                        '% Util',
+                        r=>r.pct.toFixed(1)+'%');
+                    break;
+    case 'idleF':  title.textContent='Average utilisation (future)';
+          body.innerHTML = makeTable(
+              groupAvgH(c.dailyFut, c.horizonDaysF),
+              '% Util',
+              r=>r.pct.toFixed(1)+'%');
+              break;
     case 'overF':  title.textContent='Over-capacity resources (future)'; drawerOver(c.dailyFut,c.overFut); break;
 
     case 'delay':  title.textContent='Schedule overrun';  body.innerHTML = `<p class="fs-4">${c.delayDays.toFixed(1)} days late</p>`; break;

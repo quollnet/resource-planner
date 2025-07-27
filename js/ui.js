@@ -1,6 +1,6 @@
 /* ui.js – thematic toggles, global DOM helpers */
 import { calcCost, durationDays, isBox } from './allocations.js';
-import { fromLocal } from './app.js';
+import { startIso, endIso } from './app.js';
 
 export const $  = (sel, root=document) => root.querySelector(sel);
 export const $$ = (sel, root=document) => [...root.querySelectorAll(sel)];
@@ -24,10 +24,11 @@ export function toggleTheme() {
   .forEach(id => document.getElementById(id).addEventListener('input', refreshNumbers));
 
 export function refreshNumbers(){
+  console.log('refreshNumbers called');
   const tmp = {
-    resource_id   : $('#alloc-res').value,
-    start         : fromLocal($('#alloc-start').value),
-    end           : fromLocal($('#alloc-end').value) || null,
+    resource_id: $('#alloc-res').value,
+    start: startIso($('#alloc-start').value),
+    end: endIso($('#alloc-end').value) || null,
     allocation_pct: +$('#alloc-pct').value || 0
   };
   // cost

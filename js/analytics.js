@@ -1,7 +1,8 @@
 
 // analytics.js - centralized KPI functions
 
-import { isBox, durationHours, productiveHours } from './allocations.js';
+import { isBox } from './allocations.js';
+import { plannedHours, isoToInputDate } from './utils.js';
 
 /*********************************************************************
  * buildDailyUsage(plan)
@@ -24,7 +25,7 @@ export function buildDailyUsage(plan) {
     const end   = new Date(a.end);
     for (let d = new Date(start); d <= end; d.setUTCDate(d.getUTCDate() + 1)) {
       const dayKey = d.toISOString().slice(0, 10);            // YYYY-MM-DD
-      const key    = `${a.resource_id}#${dayKey}`;
+      const key = `${a.resource_id}#${dayKey}`;
       dayMap.set(key, (dayMap.get(key) || 0) + a.allocation_pct);
     }
   });
@@ -63,7 +64,7 @@ export function buildUtilisation(plan) {
   plan.allocations.forEach(a => {
     if (isBox(a)) return;
     const m = map.get(a.resource_id);
-    m.booked += productiveHours(a);
+    m.booked += plannedHours(a);
   });
 
   return Array.from(map, ([id, v]) => {
@@ -80,7 +81,8 @@ export function buildUtilisation(plan) {
 
 export function buildDailyUsageFrom(plan, fromIso){         // ← NEW
   const arr = buildDailyUsage(plan);        // existing helper
-  return arr.filter(r => r.day >= fromIso); // ISO strings sort lexicographically
+  const fromDay = isoToInputDate(fromIso);  // Extract YYYY-MM-DD part
+  return arr.filter(r => r.day >= fromDay); // Compare date strings only
 }
 
 /* Idle gap detector (simple) */

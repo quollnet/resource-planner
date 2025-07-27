@@ -3,6 +3,7 @@ import { Timeline } from '../assets/vendor/vis-timeline-graph2d.esm.min.js';
 import { DataSet } from '../assets/vendor/vis-data.esm.min.js';
 import { hasClash, buildOverbookBands } from './allocations.js';
 import { isBox, durationDays } from './allocations.js';
+import { utcIsoToLocalDate } from './utils.js';
 
 export let timeline;
 
@@ -20,17 +21,19 @@ export function buildContent(a){
 
 export function initTimeline(container, onSelect) {
   const groups = new DataSet();
-  const items  = new DataSet();
+  const items = new DataSet();
 
   timeline = new Timeline(container, items, groups, {
+    /* Draw the entire axis in UTC so 00:00-23:59:59Z spans the
+       full visible day for every user, regardless of their locale */
     orientation: 'top',
     // configure: true,
 
     editable: {
-      updateTime : true,   // drag / resize
+      updateTime: true,   // drag / resize
       updateGroup: true,   // drag to another row
-      add        : false,
-      remove     : false,
+      add: false,
+      remove: false,
     },
   //   template: function (item) {
   //   // This function returns the HTML content for each item
@@ -96,8 +99,8 @@ export function refreshTimeline(plan, sets) {
   items.add(plan.allocations.map(a => ({
     id: a.id,
     group: a.resource_id,
-    start: a.start,
-    end: a.end,
+    start: utcIsoToLocalDate(a.start), // show local midnight
+    end: isBox(a) ? null : utcIsoToLocalDate(a.end),     // show local day-end
     content: buildContent(a),
     title: a.task,
     allocation_pct: a.allocation_pct,            // store custom field for later
@@ -114,14 +117,14 @@ export function refreshTimeline(plan, sets) {
     } : {
       id: a.id + '_bl',
       group: a.resource_id,
-      start: a.baseline_start,
-      end: a.baseline_end,
+      start: utcIsoToLocalDate(a.baseline_start),
+      end: utcIsoToLocalDate(a.baseline_end),
       type: 'range',
       className: 'baseline'
     }
   ));
   items.add(buildOverbookBands(plan));
-  timeline.fit();                                  // always land on visible window
+  // timeline.fit();                                  // always land on visible window
 }
 
 export function redraw() {

@@ -7,8 +7,9 @@ import { hasClash, populateResourcePicker, calcCost } from './allocations.js';
 import { isBox } from './allocations.js';  
 import { showAlert } from './ui.js';
 import { refreshKpis } from './kpi_bar_drawer.js';
-import { initCrypto } from './utils.js';
+import { initCrypto, utcIsoToLocalDate, localDateToUtcIso, isoToInputDate, localEndDateToUtcIso } from './utils.js';
 import { ensureResDrawer, showResDrawer } from './res_drawer.js';
+
 
 /* ---------- boot ---------- */
 initCrypto();  // initialize crypto for UUIDs
@@ -92,9 +93,9 @@ export function quickAddBox(props) {
 
   /* 2 – draw immediately */
   items.add([
-    { id: alloc.id,        group: resId, start: alloc.start,
+    { id: alloc.id, group: resId, start: utcIsoToLocalDate(alloc.start),
       content: buildContent(alloc), title: alloc.task, className:'allocation' },
-    { id: alloc.id + '_bl', group: resId, start: alloc.baseline_start,
+    { id: alloc.id + '_bl', group: resId, start: utcIsoToLocalDate(alloc.baseline_start),
       type:'point', className:'baseline point' }
   ]);
 
@@ -145,8 +146,8 @@ sets.items.on('update', (event, props) => {
     // if (hasClash(plan, visItem.group, visItem.start, visItem.end, id)) return;
 
     alloc.resource_id = visItem.group;
-    alloc.start = visItem.start.toISOString();
-    alloc.end = visItem.end ? visItem.end.toISOString() : null;
+    alloc.start = localDateToUtcIso(visItem.start); // convert to UTC ISO
+    alloc.end = visItem.end ? localEndDateToUtcIso(visItem.end) : null;
     alloc.cost = calcCost(alloc, plan);
     changed = true;
   });
@@ -214,12 +215,12 @@ function clearResForm(){
   $('#res-name').value=$('#res-class').value=$('#res-desc').value=$('#res-cost').value='';
 }
 
-export function toLocal(iso){
-  return iso ? iso.slice(0, 10) : '';          // YYYY-MM-DD
+export function startIso(dateStr){                    // midnight
+  return dateStr ? new Date(dateStr + 'T00:00:00Z').toISOString() : null;
 }
 
-export function fromLocal(dateStr){
-  return dateStr ? new Date(dateStr + 'T00:00:00Z').toISOString() : null;
+export function endIso(dateStr){                      // 23:59:59.999
+  return dateStr ? new Date(dateStr + 'T23:59:59.999Z').toISOString() : null;
 }
 
 export function initResourceTable() {
@@ -319,8 +320,8 @@ $('#modal-allocation form').onsubmit=e=>{
 
   const obj = {
     resource_id: $('#alloc-res').value,
-    start: fromLocal($('#alloc-start').value),
-    end: fromLocal($('#alloc-end').value) || null,
+    start: startIso($('#alloc-start').value),
+    end: endIso($('#alloc-end').value) || null,
     allocation_pct: +$('#alloc-pct').value || 100,
     task: $('#alloc-notes').value.trim(),
     // task: $('#alloc-title').value.trim() || '(task)'
@@ -343,26 +344,36 @@ $('#modal-allocation form').onsubmit=e=>{
       return showAlert('End must be after start.');
 
   if(editingAllocId){
-    Object.assign(plan.allocations.find(a=>a.id===editingAllocId), obj);
+    /* update existing allocation */
+    const target = plan.allocations.find(a => a.id === editingAllocId);
+    Object.assign(target, obj);                  // copy new fields
+
+    /* if it was a box and user just set an end date, it’s a range now   */
+    if (!target.baseline_end && target.end) target.baseline_end = target.end;
+
+    /* always recalc cost after the object is fully up-to-date           */
+    target.cost = calcCost(target, plan);
   }else{
-    obj.baseline_start = obj.start;
-    obj.baseline_end   = obj.end;           // may be null (baseline box)
-    obj.id=crypto.randomUUID().slice(0, 8); plan.allocations.push(obj);
+    /* new allocation – set baseline and cost before pushing */
+    obj.baseline_start ??= obj.start;
+    obj.baseline_end   ??= obj.end;
+    obj.cost = calcCost(obj, plan);
+    obj.id = crypto.randomUUID().slice(0, 8);
+    plan.allocations.push(obj);
   }
-  obj.cost = calcCost(obj, plan);
   saveAndRender(); bootstrap.Modal.getInstance('#modal-allocation').hide();
 };
 
 export function openAllocModal(a) {
   editingAllocId = a.id;
   populateResourcePicker($('#alloc-res'), plan, a.resource_id);
-  $('#alloc-start').value = toLocal(a.start);
-  $('#alloc-end').value   = a?.end ? toLocal(a.end) : '';
+  $('#alloc-start').value = isoToInputDate(a.start);
+  $('#alloc-end').value   = a?.end ? isoToInputDate(a.end) : '';
   // rangePicker.setDate([new Date(a.start), new Date(a.end)], true); // update flatpickr
   $('#alloc-pct').value = a.allocation_pct;
   $('#alloc-notes').value = a.task;
-  $('#alloc-bl-start').value = toLocal(a?.baseline_start) || '';
-  $('#alloc-bl-end').value   = toLocal(a?.baseline_end)   || '';
+  $('#alloc-bl-start').value = isoToInputDate(a?.baseline_start) || '';
+  $('#alloc-bl-end').value   = isoToInputDate(a?.baseline_end)   || '';
   $('#bl-row').classList.toggle('d-none', !a);          // hide if new
   $('#btn-reset-baseline').disabled = !a;
   $('#alloc-cost').textContent = a ? a.cost.toFixed(2) : '0.00';
