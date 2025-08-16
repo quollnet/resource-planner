@@ -16,6 +16,7 @@
 
 import { $, $$ } from './ui.js';
 import { buildDailyUsage, buildDailyUsageFrom } from './analytics.js';
+import { getResourceHireWindow, workingHours } from './utils.js';
 
 const HOURS_PER_DAY = 8;
 
@@ -63,59 +64,101 @@ export function resCostMetrics (plan, id, today = todayISO()) {
   };
 }
 
-export function resScheduleMetrics (plan, id, today = todayISO()) {
+function sumWorkingHours(start, end){
+  let hrs = 0;
+  const d = new Date(start);
+  const last = new Date(end);
+  d.setUTCHours(0,0,0,0);
+  last.setUTCHours(0,0,0,0);
+  while (d <= last){
+    hrs += workingHours(d);
+    d.setUTCDate(d.getUTCDate() + 1);
+  }
+  return hrs;
+}
+
+
+function resScheduleMetrics(plan, id, todayIso = new Date().toISOString()) {
+  const now = new Date(todayIso);
   const m = {
     startLate:0, startEarly:0, finishLate:0, finishEarly:0,
     willStartLate:0, willStartEarly:0, willFinishLate:0, willFinishEarly:0
   };
-  getAllocs(plan, id).forEach(a => {
-    const started = a.start < today;
-    const finished = a.end && a.end < today;
 
-    /* ---- start delta ---- */
-    if (a.baseline_start) {
-      if (started) {
-        if (a.start > a.baseline_start) m.startLate++;
-        else if (a.start < a.baseline_start) m.startEarly++;
-      } else {
-        if (a.start > a.baseline_start) m.willStartLate++;
-        else if (a.start < a.baseline_start) m.willStartEarly++;
+  plan.allocations
+    .filter(a => a.resource_id === id)
+    .forEach(a => {
+      const s  = new Date(a.start);
+      const e  = a.end ? new Date(a.end) : null;
+      const bs = a.baseline_start ? new Date(a.baseline_start) : null;
+      const be = a.baseline_end   ? new Date(a.baseline_end)   : null;
+
+      const started  = s < now;
+      const finished = e && e < now;
+
+      // ---- starts ----
+      if (bs) {
+        if (started) {
+          if (s > bs) m.startLate++;
+          else if (s < bs) m.startEarly++;
+        } else {
+          // in the future
+          if (s > bs) m.willStartLate++;
+          else if (s < bs) m.willStartEarly++;
+        }
       }
-    }
-    /* ---- finish delta ---- */
-    if (a.baseline_end && a.end) {
-      if (finished) {
-        if (a.end > a.baseline_end) m.finishLate++;
-        else if (a.end < a.baseline_end) m.finishEarly++;
-      } else {
-        if (a.end > a.baseline_end) m.willFinishLate++;
-        else if (a.end < a.baseline_end) m.willFinishEarly++;
+
+      // ---- finishes ----
+      if (be && e) {
+        if (finished) {
+          if (e > be) m.finishLate++;
+          else if (e < be) m.finishEarly++;
+        } else {
+          // in the future (either not started yet or in‑progress)
+          if (e > be) m.willFinishLate++;
+          else if (e < be) m.willFinishEarly++;
+        }
       }
-    }
-  });
+    });
+
   return m;
 }
 
+
 export function resUtilMetrics (plan, id) {
-  const dailyAll = buildDailyUsage(plan).filter(r => r.resource_id === id);
-  if (!dailyAll.length)
+  // Daily usage is already clamped to hire windows in analytics.js
+  const daily = buildDailyUsage(plan).filter(r => r.resource_id === id);
+
+  // If the resource never appears in daily usage, treat as 0 utilisation
+  if (!daily.length) {
     return { utilAllPct: 0, utilSpanPct: 0, otAll: 0, otSpan: 0 };
+  }
 
-  /* ---------- horizon‑wide ---------- */
-  const planStarts = plan.allocations.map(a=>new Date(a.start));
-  const planEnds   = plan.allocations.filter(a=>a.end).map(a=>new Date(a.end));
-  const horizonDays = daysBetween(new Date(Math.min(...planStarts)), new Date(Math.max(...planEnds)));
-  const utilAllPct = dailyAll.reduce((s,r)=>s+r.pct,0) / (horizonDays*100) * 100;
-  const otAll  = dailyAll.reduce((s,r)=>s + Math.max(0, r.pct-100), 0) / 100 * HOURS_PER_DAY;
+  // Capacity = sum of working hours across the resource's hire→release
+  const res = plan.resources.find(r => r.id === id);
+  const { start: hStart, end: hEnd } = getResourceHireWindow(plan, res);
 
-  /* ---------- resource span ---------- */
-  const resStarts = getAllocs(plan,id).map(a=>new Date(a.start));
-  const resEnds   = getAllocs(plan,id).filter(a=>a.end).map(a=>new Date(a.end ?? a.start));
-  const spanDays  = daysBetween(new Date(Math.min(...resStarts)), new Date(Math.max(...resEnds)));
-  const utilSpanPct = dailyAll.reduce((s,r)=>s+r.pct,0) / (spanDays*100) * 100;
-  const otSpan = dailyAll.reduce((s,r)=>s + Math.max(0, r.pct-100), 0) / 100 * HOURS_PER_DAY;
+  const capHrs = sumWorkingHours(hStart, hEnd);
 
-  return { utilAllPct, utilSpanPct, otAll, otSpan };
+  // Used hours = sum over days: workingHours(day) * (pct/100)
+  let usedHrs = 0;
+  let otHrs   = 0; // overtime: where pct > 100
+  daily.forEach(r => {
+    const day = new Date(r.day);     // YYYY-MM-DD from analytics
+    const wh  = workingHours(day);
+    usedHrs  += wh * (r.pct / 100);
+    if (r.pct > 100) otHrs += wh * ((r.pct - 100) / 100);
+  });
+
+  const utilHirePct = capHrs > 0 ? (usedHrs / capHrs) * 100 : 0;
+
+  // For backward compatibility with existing UI rendering:
+  return {
+    utilAllPct: +utilHirePct.toFixed(1),  // ← now “hire-window utilisation”
+    utilSpanPct: +utilHirePct.toFixed(1), // keep both fields aligned to hire window
+    otAll: +otHrs.toFixed(1),
+    otSpan: +otHrs.toFixed(1)
+  };
 }
 
 function collectMetrics (plan, id) {

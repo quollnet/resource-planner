@@ -4,7 +4,7 @@ Resource Planner is a lightweight, interactive web application built with HTML, 
 
 ## ✨ Key Features
 
-* **Interactive Scheduling:** Visual drag-and-drop timeline using vis-timeline.js.
+* **Interactive Scheduling:** double tap or long press timeline using vis-timeline.js.
 * **Resource Management:** Add, edit, and remove resources effortlessly.
 * **Real-Time KPIs:** Automatic calculation and visualization of resource utilization, idle hours, over-capacity, delays, and budget variances.
 * **Responsive Design:** Optimized for desktop and mobile using Bootstrap 5.

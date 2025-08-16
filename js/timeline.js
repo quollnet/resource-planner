@@ -3,7 +3,7 @@ import { Timeline } from '../assets/vendor/vis-timeline-graph2d.esm.min.js';
 import { DataSet } from '../assets/vendor/vis-data.esm.min.js';
 import { hasClash, buildOverbookBands } from './allocations.js';
 import { isBox, durationDays } from './allocations.js';
-import { utcIsoToLocalDate } from './utils.js';
+import { utcIsoToLocalDate, getPlanWindow, getResourceHireWindow, normalWorkingHours, workingHours } from './utils.js';
 
 export let timeline;
 
@@ -42,28 +42,51 @@ export function initTimeline(container, onSelect) {
   //     <a class="my-custom-button" data-item-id="${item.id}">Edit</a>
   //   `;
   // },
-    snap: function (date, scale, step) {
-        // This function will be called when an item is being dragged or resized.
-        // 'date' is the current date/time being considered for snapping.
-        // 'scale' and 'step' represent the current visible time scale (e.g., 'day', 'hour', 'minute')
-        // and the step size of that scale.
+  snap: function (date) {
+    const d = new Date(date);
+    d.setHours(12, 0, 0, 0); // midday grid prevents day-shift
+    return d.getTime();
+  },
 
-        // To snap to days, we'll round the date to the nearest day.
-        var snappedDate = new Date(date);
-        snappedDate.setHours(0, 0, 0, 0); // Set to the beginning of the day
+  onMoving: function (item, callback) {
+    const startChanged = item._originalStart !== item.start; // we store this before move
+    const endChanged   = item._originalEnd !== item.end;
 
-        // If the time is past noon, round up to the next day for better user experience
-        if (date.getHours() >= 12) {
-          snappedDate.setDate(snappedDate.getDate() + 1);
-        }
+    if (startChanged) {
+      const s = new Date(item.start);
+      s.setHours(0, 0, 0, 0); // snap to start-of-day
+      item.start = s;
+    }
 
-        return snappedDate.getTime(); // Return the snapped timestamp
-      },
+    if (endChanged && item.end) {
+      const e = new Date(item.end);
+      e.setHours(23, 59, 59, 999); // snap to end-of-day
+      item.end = e;
+    }
+
+    callback(item);
+  },
+
+  onMove: function (item, callback) {
+    // Final save, enforce same rules as onMoving
+    const s = new Date(item.start);
+    s.setHours(0, 0, 0, 0);
+    item.start = s;
+
+    if (item.end) {
+      const e = new Date(item.end);
+      e.setHours(23, 59, 59, 999);
+      item.end = e;
+    }
+
+    callback(item);
+  },
+
     stack: true,
     zoomMin : 9e5, // 15 min
     zoomMax : 3.1e10, // 1 year
   });
-
+  timeline.setCurrentTime(new Date().setUTCHours(0, 0, 0, 0));
   timeline.on('select', onSelect);
 
   return { groups, items }; // expose sets to refreshTimeline
@@ -96,6 +119,9 @@ export function refreshTimeline(plan, sets) {
 
   /* refresh items */
   items.clear();
+  const hireBands = buildHireBands(plan);
+  if (hireBands.length) items.add(hireBands);
+
   items.add(plan.allocations.map(a => ({
     id: a.id,
     group: a.resource_id,
@@ -106,6 +132,7 @@ export function refreshTimeline(plan, sets) {
     allocation_pct: a.allocation_pct,            // store custom field for later
     className: 'allocation',                // Add the class property
   })));
+
   /* baseline shadow: point for boxes, thin range for normal allocs */
   items.add(plan.allocations.map(a =>
     isBox(a) ? {
@@ -123,7 +150,9 @@ export function refreshTimeline(plan, sets) {
       className: 'baseline'
     }
   ));
+
   items.add(buildOverbookBands(plan));
+  items.add(buildLowHourBands(plan));
   // timeline.fit();                                  // always land on visible window
 }
 
@@ -131,3 +160,59 @@ export function redraw() {
   timeline && timeline.redraw();
 }
 
+function buildLowHourBands(plan) {
+  const { start, end } = getPlanWindow(plan);
+  if (!start || !end) return [];
+
+  const normHours = normalWorkingHours();
+  const bands = [];
+
+  for (let d = new Date(start); d <= end; d.setUTCDate(d.getUTCDate() + 1)) {
+    const dayHours = workingHours(d);
+    if (dayHours < normHours) {
+      const diff = normHours - dayHours;
+      const intensity = Math.min(diff / normHours, 1); // 0 → 1
+      const alpha = (0.1 + intensity * 0.4).toFixed(2); // 0.10 to 0.50
+
+      const dayStart = new Date(d);
+      const dayEnd = new Date(d);
+      dayEnd.setHours(23, 59, 59, 999);
+
+      bands.push({
+        id: `bg-low-${dayStart.toISOString().slice(0, 10)}`,
+        start: dayStart,
+        end: dayEnd,
+        type: 'background',
+        style: `background-color: rgba(255, 200, 0, ${alpha*0.5});`
+      });
+    }
+  }
+
+  return bands;
+}
+
+function buildHireBands(plan) {
+  // Only draw for resources that have a row (same filter as groups)
+  const usedIds = new Set(plan.allocations.map(a => a.resource_id));
+  const bands = [];
+
+  plan.resources
+    .filter(r => usedIds.has(r.id)) // keep this aligned with how groups are built
+    .forEach(r => {
+      const { start, end } = getResourceHireWindow(plan, r);
+      // Convert to local-axis Dates (we store UTC ISO)
+      const startLocal = start.setHours(0,0,0,0);
+      const endLocal   = end.setHours(0,0,0,0);
+
+      bands.push({
+        id: `hire_${r.id}`,
+        group: r.id,
+        start: startLocal,
+        end: endLocal,
+        type: 'background',
+        className: 'bg-hire'
+      });
+    });
+
+  return bands;
+}

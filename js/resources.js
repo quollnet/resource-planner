@@ -1,5 +1,5 @@
-/* resources.js – resource CRUD & table rendering */
 import { $, $$ } from './ui.js';
+import { isoToInputDate } from './utils.js';
 
 export function renderResources(plan, onEdit, onDelete) {
   const tbody = $('#tbl-resources tbody'); tbody.innerHTML = '';
@@ -19,8 +19,13 @@ export function renderResources(plan, onEdit, onDelete) {
             <button class="btn btn-secondary btn-sm me-1 btn-edit" title="Edit">✎</button>
             <button class="btn btn-danger btn-sm btn-del" title="Delete">✕</button>
           </div>
-${r.cost_per_hour.toFixed(2)}
+          ${r.cost_per_hour.toFixed(2)}
         </td>
+
+        <!-- NEW: hired period -->
+        <td class="d-none d-md-table-cell">${r.start ? isoToInputDate(r.start) : ''}</td>
+        <td class="d-none d-md-table-cell">${r.end   ? isoToInputDate(r.end)   : ''}</td>
       </tr>`);
   });
 }
+

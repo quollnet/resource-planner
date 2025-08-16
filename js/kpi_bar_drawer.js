@@ -1,6 +1,6 @@
 // kpi_bar_drawer.js – Bootstrap‑powered KPI bar + off‑canvas drawer
 // Rewritten to use plan‑horizon based calculations
-// – Average utilisation: share of capacity across ENTIRE plan window (includes quiet days)
+// – Average utilization: share of capacity across ENTIRE plan window (includes quiet days)
 // – Idle hours: (100 % − daily %) × hoursPerDay across horizon
 //
 // Usage: import { refreshKpis } from './kpi_bar_drawer.js'; refreshKpis(plan);
@@ -9,13 +9,28 @@
 import { buildDailyUsage, buildDailyUsageFrom } from './analytics.js';
 import { resCostMetrics } from './res_drawer.js';
 import { $ } from './ui.js';
-import { daysBetween, workingHours } from './utils.js'
+import { daysBetween, workingHours, getPlanWindow, getResourceHireWindow, utcIsoToLocalDate } from './utils.js';
+import { getFutureCapacity } from './utils.js';
 
 const kpiCache = new WeakMap();
 
-// only include resources that actually appear in any allocation
-function getUsedResourceIds(plan) {
-  return new Set(plan.allocations.map(a => a.resource_id));
+function clampRange(aStart, aEnd, bStart, bEnd){
+  const s = new Date(Math.max(+aStart, +bStart));
+  const e = new Date(Math.min(+aEnd,   +bEnd));
+  return s <= e ? [s, e] : null;
+}
+
+function sumWorkingHours(start, end){
+  let hrs = 0;
+  const d = new Date(start);
+  const last = new Date(end);
+  d.setUTCHours(0,0,0,0);
+  last.setUTCHours(0,0,0,0);
+  while (d <= last){
+    hrs += workingHours(d);
+    d.setUTCDate(d.getUTCDate() + 1);
+  }
+  return hrs;
 }
 
 /* -------------------------------------------------------------- *
@@ -35,87 +50,192 @@ function horizonWorkingHours(horizonStart, days){
 }
 
 
-/* --- average % over a fixed window --------------------------------------- */
-function groupAvgH(dailyArr, totalDays){
-  const byRes = new Map();                           // id → {name,sum}
+function groupAvgH(plan, dailyArr, clampStart=null, clampEnd=null){
+  const byRes = new Map();
+
+  console.log('groupAvgH', dailyArr.length, 'records');
+  console.log('is Array', Array.isArray(dailyArr));
   dailyArr.forEach(r=>{
     const rec = byRes.get(r.resource_id)
-          || { resource_id:r.resource_id, resource_name:r.resource_name, sum:0 };
-    rec.sum += r.pct;
+      || { resource_id:r.resource_id, resource_name:r.resource_name, usedHrs:0 };
+    rec.usedHrs += workingHours(new Date(r.day)) * (r.pct / 100);
     byRes.set(r.resource_id, rec);
   });
-  /* div by (totalDays*100) → utilisation %, 0 if never used */
-  return Array.from(byRes.values()).map(r=>({
-    ...r,
-    pct: 100 * r.sum / (totalDays * 100)
-  }));
+
+  return Array.from(byRes.values()).map(r=>{
+    const res = plan.resources.find(x=>x.id === r.resource_id);
+    if (!res) return { ...r, pct: 0 };
+
+    const { start: hStart, end: hEnd } = getResourceHireWindow(plan, res);
+
+    let spanStart = hStart;
+    let spanEnd   = hEnd;
+    if (clampStart) spanStart = new Date(Math.max(spanStart, clampStart));
+    if (clampEnd)   spanEnd   = new Date(Math.min(spanEnd, clampEnd));
+
+    let capHrs = 0;
+    for (let d = new Date(spanStart); d <= spanEnd; d.setUTCDate(d.getUTCDate()+1)){
+      capHrs += workingHours(d);
+    }
+
+    const pct = capHrs > 0 ? (r.usedHrs / capHrs) * 100 : 0;
+    return { ...r, pct };
+  });
 }
 
-/*****************************************************************************************
- * Public API
- *****************************************************************************************/
+// this function calculates the total hours booked by a resource
+// across the entire plan horizon, if a resource has multiple allocations, 
+// it sums the hours across all allocations
+// incase future is true, it will only count hours from today onwards
+function getResourceBookedHours(plan, resId, future = false) {
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0); // strip time for today
+  let bookedHours = 0;
+  for (const allocation of plan.allocations) {
+    if (allocation.resource_id !== resId) continue;
+
+    // If future is true, skip allocations before today
+    let start = new Date(allocation.start);
+    let end = new Date(allocation.end);
+
+    if (future) {
+      if (end < today) continue; // skip allocations ending before today
+      if (start < today) start = new Date(today); // clamp start to today
+    }
+
+    // If allocation has no end date, skip it
+    if (!allocation.end) continue;
+
+    bookedHours += sumWorkingHours(start, end) * (allocation.allocation_pct / 100);
+  }
+  console.log(`Total booked hours for resource ${resId}:`, bookedHours);
+  return bookedHours;
+}
+
+
+// this function calculates the capacity of a resource from:
+// 1. start to end dates specified in the resource
+// 2. planner start if no start date is specified
+// 3. planner end if no end date is specified
+// 4. future capacity is returned if required in the args
+// 5. if future capacity is requested, the start date is clamped to the current date
+// 6. if planner dates are all in the past, future capacity is zero
+function getResourceCapacity(plan, res, future = false) {
+  const { start: plannerStart, end: plannerEnd } = getPlanWindow(plan);
+  let start = res.start ? new Date(res.start) : new Date(plannerStart);
+  let end = res.end ? new Date(res.end) : new Date(plannerEnd);
+
+  // ensure dates are in UTC
+  start.setUTCHours(0, 0, 0, 0);
+  end.setUTCHours(0, 0, 0, 0);
+
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
+
+  // if planner window is entirely in the past, future capacity is zero
+  if (future && plannerEnd < today) {
+    return 0;
+  }
+
+  // if future capacity is requested, clamp the start date to today
+  if (future && start < today) {
+    start = new Date(today);
+  }
+
+  // if start is after end, capacity is zero
+  if (start > end) {
+    return 0;
+  }
+
+  return sumWorkingHours(start, end);
+}
+
 let currentPlan = null;
 
-function kpiAvgUtil(dArr, days){
-  const usedCount   = getUsedResourceIds(currentPlan).size || 1;
-  console.log('kpiAvgUtil: usedCount', usedCount, 'days', days);
-  const totalCapPct = usedCount * days * 100;
-  console.log('kpiAvgUtil: totalCapPct', totalCapPct);
-  console.log('kpiAvgUtil: dArr', dArr);
-  return totalCapPct ? dArr.reduce((s,r)=>s+r.pct,0)/totalCapPct*100 : 0;
+function kpiAvgUtil(plan, future = false) {
+  const usedIds = new Set(plan.allocations.map(a => a.resource_id));
+
+  // 1) capacity hours across all used resources
+  let capHrsTotal = 0;
+  let usedHrsTotal = 0;
+  usedIds.forEach(id => {
+      const res = plan.resources.find(r => r.id === id);
+      if (!res) return;
+
+      // total capacity days
+      console.debug('capacity days:', daysBetween(res.start, res.end));
+      // capacity using getResourceCapacity
+      console.debug('capacity using getResourceCapacity:', getResourceCapacity(plan, res));
+
+      // total capacity hours
+      const capHrs = getResourceCapacity(plan, res, future);
+      const usedHrs = getResourceBookedHours(plan, res.id, future);
+
+      usedHrsTotal += usedHrs;
+      capHrsTotal += capHrs;
+  });
+
+  return (usedHrsTotal / capHrsTotal) * 100;
 }
 
-function kpiIdleRows(dArr, days, horizonStart){
-  /* 1 ── capacity across the horizon (calendar-aware) */
-  const totalHrs = horizonWorkingHours(horizonStart, days);      // same for every resource
+ // this function returns the sum number of working hours not used by any allocation
+ // this is calculated by taking the total capacity of each resource and subtracting the used hours
+ // returns an array of objects with resource_id, resource_name, and hours
+function kpiIdleRows(plan, future = false) {
+  const idleHours = new Array(); // resource_id → used hours
+  for (const res of plan.resources) {
+    // check if resource has at least one allocation
+    if (!res.id || !plan.allocations.some(a => a.resource_id === res.id)) continue;
+    const bookedHours = getResourceBookedHours(plan, res.id, future);
+    const capacityHours = getResourceCapacity(plan, res, future);
+    console.log(`Resource ${res.name} (${res.id}): booked ${bookedHours}, capacity ${capacityHours}`);
+    idleHours.push({ resource_id: res.id, resource_name: res.name, hours: capacityHours - bookedHours });
+  }
 
-  /* 2 ── accumulate USED hours per resource */
-  const usedHours = new Map();                                   // resId → hrs used
-  getUsedResourceIds(currentPlan).forEach(id => usedHours.set(id, 0));
+  return idleHours;
+}
 
-  dArr.forEach(r => {
-    const hrsToday = workingHours(new Date(r.day));              // 8h today (later calendar)
-    usedHours.set(r.resource_id,
-      usedHours.get(r.resource_id) + hrsToday * r.pct / 100);
-  });
+// this function returns the schedule variance
+// earliest start date and latest end date of all allocations vs.
+// earliest baseline start date and latest baseline end date
+function kpiScheduleVariance(plan) {
+  let earliestStart = new Date(Math.min(...plan.allocations.map(a => new Date(a.start))));
+  let latestEnd = new Date(Math.max(...plan.allocations.map(a => new Date(a.end))));
+  let earliestBaselineStart = new Date(Math.min(...plan.allocations.map(a => a.baseline_start ? new Date(a.baseline_start) : Infinity)));
+  let latestBaselineEnd = new Date(Math.max(...plan.allocations.map(a => a.baseline_end ? new Date(a.baseline_end) : -Infinity)));
+  const scheduleVariance = {
+    earliestStart: utcIsoToLocalDate(earliestStart.toISOString()),
+    latestEnd: utcIsoToLocalDate(latestEnd.toISOString()),
+    earliestBaselineStart: utcIsoToLocalDate(earliestBaselineStart.toISOString()),
+    latestBaselineEnd: utcIsoToLocalDate(latestBaselineEnd.toISOString()),
+    varianceDays: Math.max(0, (latestEnd - latestBaselineEnd) / 86400000) // in days
+  };
 
-  /* 3 ── derive idle hours = capacity – used */
-  return Array.from(usedHours, ([id, used]) => {
-    const idleHrs = Math.max(0, totalHrs - used);
-    return {
-      resource_id: id,
-      resource_name: currentPlan.resources.find(x=>x.id===id)?.name || id,
-      hours: +idleHrs.toFixed(1)
-    };
-  });
+  return scheduleVariance;
 }
 
 export function refreshKpis (plan){
   ensureKpiBar();
   currentPlan = plan;
 
-  /* ---------- horizon ---------- */
-  const starts = plan.allocations.map(a => new Date(a.start));
-  const ends   = plan.allocations.filter(a => a.end)
-                                .map(a => new Date(a.end));
-  const horizonStart = new Date(Math.min(...starts));
-  const horizonEnd   = new Date(Math.max(...ends, horizonStart));
-  const horizonDays  = daysBetween(horizonStart, horizonEnd);
-  const today        = new Date();
-  // First day of the “future” window = whichever comes later:
-  const futureStart  = today < horizonStart ? horizonStart : today;
+  // ----- horizon (planner-wide, from allocations) -----
+  const { start: horizonStart, end: horizonEnd } = getPlanWindow(plan);
+  const horizonDays = daysBetween(horizonStart, horizonEnd);
+
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
+  const futureStart = today < horizonStart ? horizonStart : today;
   const horizonDaysF = daysBetween(futureStart, horizonEnd);
 
-  /* ---------- daily tables ---------- */
+  // ----- daily tables (already hire-window aware via analytics.js) -----
   const dailyAll = buildDailyUsage(plan);
   const dailyFut = buildDailyUsageFrom(plan, futureStart.toISOString());
 
-  /* ---------- core KPIs ---------- */
-  const utilAll   = kpiAvgUtil(dailyAll, horizonDays);
-  const utilFut   = kpiAvgUtil(dailyFut, horizonDaysF);
+  const utilAll = kpiAvgUtil(plan);
+  const utilFut = kpiAvgUtil(plan, true);
 
-  const idleRowsAll = kpiIdleRows(dailyAll, horizonDays, horizonStart);
-  const idleRowsFut = kpiIdleRows(dailyFut, horizonDaysF, futureStart);
+  const idleRowsAll = kpiIdleRows(plan);
+  const idleRowsFut = kpiIdleRows(plan, true);
 
   const idleAllTot  = idleRowsAll.reduce((s,r)=>s+r.hours,0);
   const idleFutTot  = idleRowsFut.reduce((s,r)=>s+r.hours,0);
@@ -123,7 +243,9 @@ export function refreshKpis (plan){
   const overAll = new Set(dailyAll.filter(r=>r.pct>100).map(r=>r.resource_id));
   const overFut = new Set(dailyFut.filter(r=>r.pct>100).map(r=>r.resource_id));
 
-  /* ---------- schedule & budget overrun ---------- */
+  const scheduleVariance = kpiScheduleVariance(plan);
+
+  // ----- schedule & budget overrun (unchanged) -----
   let delayDays=0, budgetD=0;
   plan.allocations.forEach(a=>{
     if(a.baseline_end && a.end && new Date(a.end)>new Date(a.baseline_end))
@@ -131,7 +253,7 @@ export function refreshKpis (plan){
     if(a.baseline_cost!=null) budgetD += (a.cost - a.baseline_cost);
   });
 
-  /* ---------- write to UI ---------- */
+  // ----- write to UI -----
   $('#kpi-util .kpi-val').textContent  = utilAll.toFixed(0)+'%';
   $('#kpi-idle .kpi-val').textContent  = idleAllTot.toFixed(0);
   $('#kpi-over .kpi-val').textContent  = overAll.size;
@@ -140,21 +262,22 @@ export function refreshKpis (plan){
   $('#kpi-idleF .kpi-val').textContent = idleFutTot.toFixed(0);
   $('#kpi-overF .kpi-val').textContent = overFut.size;
 
-  $('#kpi-delay .kpi-val').textContent  = delayDays.toFixed(1);
+  $('#kpi-delay .kpi-val').textContent  = scheduleVariance.varianceDays.toFixed(1);
   $('#kpi-budget .kpi-val').textContent = '$'+budgetD.toFixed(0);
 
-  // new: total current cost for cashflow
+  // cashflow stays as-is…
   const cfData = buildCashflowMetrics(plan, 'month');
   const totalCurrent = cfData.reduce((sum,d) => sum + d.current, 0);
   $('#kpi-cashflow .kpi-val').textContent = '$' + totalCurrent.toFixed(0);
 
-  /* ---------- cache ---------- */
+  // cache (unchanged types; values now hire-aware)
   kpiCache.set(plan,{
     dailyAll,  idleRowsAll,  overAll,  utilAll,
     dailyFut,  idleRowsFut,  overFut,  utilFut,
-    delayDays, budgetD,
-    horizonDays, horizonDaysF
+    delayDays, budgetD, idleAllTot, idleFutTot, scheduleVariance,
+    horizonDays, horizonDaysF, horizonStart, horizonEnd, futureStart
   });
+
 }
 
 
@@ -166,31 +289,90 @@ function showDrawer(which){
   const body  = $('#kpiDrawerBody');
   const title = $('#kpiDrawerLabel');
 
+
   switch(which){
-    case 'util':   title.textContent='Average utilisation (all)';
-        body.innerHTML = makeTable(
-        groupAvgH(c.dailyAll, c.horizonDays),
+    case 'util':
+      title.textContent='Average utilisation (all)';
+      body.innerHTML = `<p class="text-muted mb-2">Average utilisation is calculated as the ratio of used hours to available hours across the entire plan horizon.</p>`;
+      body.innerHTML += renderKpi(c.utilAll.toFixed(0)+'%', c.utilAll < 100);
+      body.innerHTML += makeTable(
+        groupAvgH(currentPlan, c.dailyAll, c.horizonStart, c.horizonEnd),
         '% Util',
-        r=>r.pct.toFixed(1)+'%');
-        break;
-    case 'idle':   title.textContent='Idle hours (all)';           body.innerHTML = makeTable(c.idleRowsAll,'Hours',r=>r.hours.toFixed(1)); break;
-    case 'over':   title.textContent='Over-capacity resources (all)'; drawerOver(c.dailyAll,c.overAll); break;
+        r=>r.pct.toFixed(1)+'%'
+      );
+      break;
 
-    case 'utilF':  title.textContent='Average utilisation (future)';
-                        body.innerHTML = makeTable(
-                        groupAvgH(c.dailyFut, c.horizonDaysF),
-                        '% Util',
-                        r=>r.pct.toFixed(1)+'%');
-                    break;
-    case 'idleF':  title.textContent='Average utilisation (future)';
-          body.innerHTML = makeTable(
-              groupAvgH(c.dailyFut, c.horizonDaysF),
-              '% Util',
-              r=>r.pct.toFixed(1)+'%');
-              break;
-    case 'overF':  title.textContent='Over-capacity resources (future)'; drawerOver(c.dailyFut,c.overFut); break;
+    case 'idle':
+      title.textContent='Idle hours (all)';
+      // add description to the idle hours table
+      body.innerHTML = `<p class="text-muted mb-2">Idle hours are calculated as (100% - daily %) × hours per day across the entire plan horizon.</p>`;
+      body.innerHTML += renderKpi(c.idleAllTot.toFixed(0) + ' hours', c.idleAllTot >= 0);
+      body.innerHTML += makeTable(c.idleRowsAll,'Hours',r=>r.hours.toFixed(1));
+      break;
 
-    case 'delay':  title.textContent='Schedule overrun';  body.innerHTML = `<p class="fs-4">${c.delayDays.toFixed(1)} days late</p>`; break;
+    case 'over':
+      title.textContent='Over-capacity resources (all)';
+      drawerOver(c.dailyAll,c.overAll);
+      break;
+
+    case 'utilF':
+      title.textContent='Average utilisation (future)';
+      // add description to the utilisation table
+      body.innerHTML = `<p class="text-muted mb-2">Average utilisation is calculated as the ratio of used hours to available hours across the entire plan horizon.</p>`;
+      body.innerHTML += renderKpi(c.utilFut.toFixed(0) + '%', c.utilFut < 100);
+      body.innerHTML += makeTable(
+        groupAvgH(currentPlan, c.dailyFut, c.futureStart, c.horizonEnd),
+        '% Util',
+        r=>r.pct.toFixed(1)+'%'
+      );
+      break;
+
+    case 'idleF':
+      title.textContent='Idle hours (future)';
+      // add description to the idle hours table
+      body.innerHTML = `<p class="text-muted mb-2">Idle hours are calculated as (100% - daily %) × hours per day across the entire plan horizon.</p>`;
+      body.innerHTML += renderKpi(c.idleFutTot.toFixed(0) + ' hours', c.idleFutTot >= 0);
+      body.innerHTML += makeTable(c.idleRowsFut,'Hours',r=>r.hours.toFixed(1));
+      break;
+
+    case 'overF':
+      title.textContent='Over-capacity resources (future)';
+      drawerOver(c.dailyFut,c.overFut);
+      break;
+
+    case 'delay':
+      title.textContent = 'Schedule overrun';
+      // Description for the delay table
+      body.innerHTML = `<p class="text-muted mb-2">
+        Schedule overrun is calculated as the difference between the actual and baseline finish dates.
+      </p>`;
+      body.innerHTML += renderKpi(c.scheduleVariance.varianceDays.toFixed(1) + ' days', c.scheduleVariance.varianceDays <= 0);
+      
+      // Format the dates without time info
+      const formatDate = dateStr => 
+        new Date(dateStr).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+      
+      // Updated layout: Vertical groups for Start and Finish
+      body.innerHTML += `
+        <div class="my-3 text-muted small">
+          <div class="mb-3">
+            <div class="fw-bold">Start</div>
+            <div class="ms-3">
+              <div>Actual: ${formatDate(c.scheduleVariance.earliestStart)}</div>
+              <div>Baseline: ${formatDate(c.scheduleVariance.earliestBaselineStart)}</div>
+            </div>
+          </div>
+          <div>
+            <div class="fw-bold">Finish</div>
+            <div class="ms-3">
+              <div>Actual: ${formatDate(c.scheduleVariance.latestEnd)}</div>
+              <div>Baseline: ${formatDate(c.scheduleVariance.latestBaselineEnd)}</div>
+            </div>
+          </div>
+        </div>
+      `;
+      break;
+
     case 'budget':
       title.textContent = 'Budget Details';
       const rows = currentPlan.resources.map(r => {
@@ -208,25 +390,22 @@ function showDrawer(which){
           resource_name: r.name, budget, spent, remaining, variance
         };
       });
-      body.innerHTML = makeBudgetHeader(rows) + makeBudgetCards(rows)
-  break;
-    case 'cashflow':
-      title.textContent = 'Cashflow Metrics';
-      const data = buildCashflowMetrics(currentPlan, 'month');
-      // totals display
-      const totals = data.reduce((acc,d) => { acc.baseline+=d.baseline; acc.current+=d.current; return acc; }, {baseline:0,current:0});
-      const totalsHtml = `<div class="d-flex justify-content-end mb-2" style="font-size:.9rem;"><div class="me-3"><strong>Base Total:</strong> $${totals.baseline.toFixed(0)}</div><div><strong>Current Total:</strong> $${totals.current.toFixed(0)}</div></div>`;
-      const controls = makeCashflowControls('month');
-      body.innerHTML = totalsHtml + controls + makeCashflowChart(data);
-      // handlers
-      body.querySelectorAll('[data-period]').forEach(btn => btn.addEventListener('click', () => showCashflowDrawer(currentPlan, btn.dataset.period)));
+      body.innerHTML = makeBudgetHeader(rows) + makeBudgetCards(rows);
       break;
+    case 'cashflow': 
+      // Delegate to the dedicated drawer builder (defaults to month)
+      showCashflowDrawer(currentPlan, 'month');
+      break;
+    
   }
   bootstrap.Offcanvas.getOrCreateInstance('#kpiDrawer').show();
 }
+
 function drawerOver(daily,set){
   const rows = groupAvg(daily.filter(r=>set.has(r.resource_id)));
-  $('#kpiDrawerBody').innerHTML = rows.length ? makeTable(rows,'% Util',r=>r.pct.toFixed(1)+'%')
+  // add description to the over-capacity table
+  $('#kpiDrawerBody').innerHTML = `<p class="text-muted mb-2">Over-capacity resources are those with average utilisation above 100%.</p>`;
+  $('#kpiDrawerBody').innerHTML += rows.length ? makeTable(rows,'% Util',r=>r.pct.toFixed(1)+'%')
     : '<p class="mt-3 text-success">None 🎉</p>';
 }
 
@@ -239,6 +418,17 @@ function groupAvg(dailyArr){
     byRes.set(r.resource_id, rec);
   });
   return Array.from(byRes.values()).map(r=>({ ...r, pct:r.sum/r.days }));
+}
+
+// this function returns html for the kpi value
+function renderKpi(kpi, positive = true) {
+  const colorClass = positive
+    ? 'text-success border-success'
+    : 'text-danger border-danger';
+  return `<div class="kpi-value border ${colorClass} p-3 text-center fs-2 fw-bold"
+    style="min-height:64px; display:block; width: fit-content; margin: 0 auto; border-width:1px; border-radius:8px;">
+    ${kpi}
+  </div>`;
 }
 
 function makeTable(dataArr, valueHeader, fmt){
@@ -257,110 +447,328 @@ function makeBudgetHeader(rows) {
     acc.remaining += d.remaining;
     acc.variance  += d.variance;
     return acc;
-  }, { resource_name: '📊 Total', budget: 0, spent: 0, remaining: 0, variance: 0 });
+  }, { resource_name: 'Total for the whole planner', budget: 0, spent: 0, remaining: 0, variance: 0 });
 
-  return `
-    <div class="row g-2 budget-cards-header" style="font-size: 1rem; margin-bottom: .5rem;">
-      <div class="col-12">
-        <div class="d-flex justify-content-between align-items-center p-2 bg-body rounded shadow-sm border border-primary">
-          <div class="flex-grow-1 pe-2">
-            <div class="fw-semibold">${totals.resource_name}</div>
-            <div class="text-muted small">Bud: $${totals.budget.toFixed(0)}</div>
+return `
+  <div class="row g-2 budget-cards-header pt-2" style="font-size: 1rem;">
+    <div class="col-12">
+      <!-- Header with Resource Name and Variance -->
+      <div class="mb-2">
+        <div class="d-flex justify-content-between mb-2">
+          <div class="fw-semibold">${totals.resource_name}</div>
+          <div>
+            ${
+              totals.variance < 0
+                ? `<span class="badge bg-danger">${totals.variance.toFixed(0)}</span>`
+                : `<span class="badge bg-success">${Math.abs(totals.variance).toFixed(0)}</span>`
+            }
           </div>
-          <div class="text-end">
-            <div>Spent: $${totals.spent.toFixed(0)}</div>
-            <div>Rem: $${totals.remaining.toFixed(0)}</div>
-            <div>
-                ${totals.variance < 0
-                  ? `<span class="badge bg-danger">${totals.variance.toFixed(0)}</span>`
-                  : `<span class="badge bg-success">${Math.abs(totals.variance).toFixed(0)}</span>`}
+        </div>
+        <div class="d-flex justify-content-end mb-1">
+          <small class="text-muted">Total Actual Budget: ${(totals.spent + totals.remaining).toFixed(0)}</small>
+        </div>
+      </div>
+      <!-- First Bar: Planned Budget -->
+      <div class="d-flex align-items-center mb-2">
+        <div class="me-2 text-muted" style="width:60px; text-align:right;">
+          <small>Planned</small>
+        </div>
+        <div class="flex-grow-1">
+          <div class="progress" style="height: 24px;">
+            <div class="progress-bar bg-info" role="progressbar" style="width: 100%;" 
+              aria-valuenow="${totals.budget.toFixed(0)}" aria-valuemin="0" aria-valuemax="${totals.budget.toFixed(0)}">
+              ${totals.budget.toFixed(0)}
             </div>
           </div>
         </div>
       </div>
-    </div>`;
-}
+      <!-- Second Bar: Actual (Spent vs Remaining) -->
+      <div class="d-flex align-items-center">
+        <div class="me-2 text-muted" style="width:60px; text-align:right;">
+          <small>Actual</small>
+        </div>
+        <div class="flex-grow-1">
+          <div class="progress" style="height: 24px;">
+            ${(() => {
+              const budget = totals.budget;
+              const spent = totals.spent;
+              const remaining = totals.remaining;
+              const spentPct = budget > 0 ? (spent / budget) * 100 : 0;
+              const remainPct = budget > 0 ? (remaining / budget) * 100 : 0;
+              return `
+                <div class="progress-bar bg-primary" role="progressbar" style="width: ${spentPct.toFixed(1)}%" 
+                  aria-valuenow="${spent.toFixed(0)}" aria-valuemin="0" aria-valuemax="${budget.toFixed(0)}">
+                  ${spent.toFixed(0)}
+                </div>
+                <div class="progress-bar ${totals.variance < 0 ? 'bg-danger' : 'bg-success'}" role="progressbar" 
+                  style="width: ${remainPct.toFixed(1)}%" aria-valuenow="${remaining.toFixed(0)}" 
+                  aria-valuemin="0" aria-valuemax="${budget.toFixed(0)}">
+                  ${remaining.toFixed(0)}
+                </div>
+              `;
+            })()}
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="text-muted mt-2" style="font-size: .7rem;">
+        This summary shows the total budget, spent, and remaining amounts for all resources in the planner.
+        The variance indicates how much over or under budget the planner is.
+    </div>
+    <hr class="mb-4">
+`;
 
-
+};
 
 /**
- * Render a compact card list of budget details.
+ * Render a compact card list of budget details using progress bars,
+ * that visually differs from the header.
  * @param {Array<{resource_name:string,budget:number,spent:number,remaining:number,variance:number}>} data
  */
 function makeBudgetCards(data) {
   return `
-    <div class="row g-2" style="font-size: .75rem;">
-      ${data.map(d => `
+    <div class="row g-1" style="font-size: .75rem;">
+      ${data.map(d => {
+        const spentPct = d.budget > 0 ? (d.spent / d.budget) * 100 : 0;
+        const remainPct = d.budget > 0 ? (d.remaining / d.budget) * 100 : 0;
+        return `
         <div class="col-12">
-          <div class="d-flex justify-content-between align-items-center p-2 bg-body rounded shadow-sm">
-            <div class="flex-grow-1 pe-2">
+          <div class="bg-body shadow-sm">
+            <div class="d-flex justify-content-between mb-1">
               <div class="fw-semibold">${d.resource_name}</div>
-              <div class="text-muted small">Bud: $${d.budget.toFixed(0)}</div>
-            </div>
-            <div class="text-end">
-              <div>Spent: $${d.spent.toFixed(0)}</div>
-              <div>Rem: $${d.remaining.toFixed(0)}</div>
               <div>
                 ${d.variance < 0
-                  ? `<span class="badge bg-danger">${d.variance.toFixed(0)}</span>`
-                  : `<span class="badge bg-success">${Math.abs(d.variance).toFixed(0)}</span>`}
+                  ? `<span class="text-danger">Variance: ${d.variance.toFixed(0)}</span>`
+                  : `<span class="text-success">Variance: ${Math.abs(d.variance).toFixed(0)}</span>`}
               </div>
             </div>
+            <div class="progress" style="height: 16px;">
+              <div class="progress-bar bg-primary" role="progressbar" style="width: ${spentPct.toFixed(1)}%" aria-valuenow="${d.spent.toFixed(0)}" aria-valuemin="0" aria-valuemax="${d.budget}">
+                ${d.spent.toFixed(0)}
+              </div>
+              <div class="progress-bar ${d.variance < 0 ? 'bg-danger' : 'bg-success'}" role="progressbar" style="width: ${remainPct.toFixed(1)}%" aria-valuenow="${d.remaining.toFixed(0)}" aria-valuemin="0" aria-valuemax="${d.budget}">
+                ${d.remaining.toFixed(0)}
+              </div>
+            </div>
+            <div class="text-muted small mb-1">Budget: ${d.budget.toFixed(0)} | Actual: ${(d.spent + d.remaining).toFixed(0)}</div>
           </div>
-        </div>`).join('')}
+        </div>
+      `;
+      }).join('')}
+    </div>
+  `;
+}
+
+/* ---------------------- Cashflow functions (revised) ---------------------- */
+
+function getWeekNumber(d) {
+  const date = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  const day = date.getUTCDay() || 7; // 1..7 (Mon..Sun)
+  date.setUTCDate(date.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  return Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
+}
+
+function periodKeyAndBounds(day, periodType) {
+  const d = new Date(Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate()));
+  let start, end, key;
+
+  if (periodType === 'day') {
+    start = new Date(d);
+    end   = new Date(d); end.setUTCHours(23,59,59,999);
+    key = start.toISOString().slice(0,10);
+  } else if (periodType === 'week') {
+    const dow = d.getUTCDay() || 7; // Mon=1..Sun=7
+    start = new Date(d); start.setUTCDate(d.getUTCDate() - (dow - 1));
+    end   = new Date(start); end.setUTCDate(start.getUTCDate() + 6); end.setUTCHours(23,59,59,999);
+    key = `${start.getUTCFullYear()}-W${String(getWeekNumber(d)).padStart(2,'0')}`;
+  } else {
+    start = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
+    end   = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth()+1, 0, 23,59,59,999));
+    key = `${start.getUTCFullYear()}-${String(start.getUTCMonth()+1).padStart(2,'0')}`;
+  }
+  return { key, start, end };
+}
+
+function periodStatus(start, end, todayUtc) {
+  if (end   < todayUtc) return 'past';
+  if (start > todayUtc) return 'future';
+  return 'mixed';
+}
+
+
+/* Build empty buckets covering the full plan horizon */
+function buildEmptyBuckets(plan, periodType) {
+  const { start: hStart, end: hEnd } = getPlanWindow(plan);
+  // snap horizon edges to exact period bounds
+  const first = periodKeyAndBounds(hStart, periodType).start;
+  const last  = periodKeyAndBounds(hEnd,   periodType).end;
+
+  const buckets = new Map();
+  const cursor = new Date(first);
+  while (cursor <= last) {
+    const { key, start, end } = periodKeyAndBounds(cursor, periodType);
+    if (!buckets.has(key)) buckets.set(key, { start, end, baseline: 0, current: 0 });
+    // advance by one period
+    if (periodType === 'day') {
+      cursor.setUTCDate(cursor.getUTCDate() + 1);
+    } else if (periodType === 'week') {
+      cursor.setUTCDate(cursor.getUTCDate() + 7);
+    } else {
+      cursor.setUTCMonth(cursor.getUTCMonth() + 1, 1);
+    }
+  }
+  return buckets;
+}
+
+/**
+ * Weighted distribution: split a total amount over days using working hours.
+ * (Mon–Fri 8h, Sat 4h, Sun 0h) — Sundays naturally receive 0.
+ */
+function distributeByWorkingHours(total, s, e) {
+  const days = [];
+  const d = new Date(s); d.setUTCHours(0,0,0,0);
+  const end = new Date(e); end.setUTCHours(0,0,0,0);
+
+  while (d <= end) {
+    days.push(new Date(d));
+    d.setUTCDate(d.getUTCDate() + 1);
+  }
+
+  // sum weights; skip zero-hour calendars
+  let wSum = 0;
+  const weights = days.map(day => {
+    const w = workingHours(day); // from utils.js
+    wSum += w;
+    return w;
+  });
+  if (wSum <= 0) return []; // nothing to allocate (e.g., all Sundays)
+
+  return days.map((day, i) => ({ day, amount: total * (weights[i] / wSum) }));
+}
+
+/**
+ * Build cashflow across Day/Week/Month with:
+ *  - baseline based on (baseline_start/end, baseline_cost)
+ *  - actual   based on (start/end, cost)
+ *  - clamped to resource hire window and plan window
+ *  - allocated only on working hours
+ */
+function buildCashflowMetrics(plan, periodType='month') {
+  const buckets = buildEmptyBuckets(plan, periodType);
+  const today = new Date(); today.setUTCHours(0,0,0,0);
+
+  const horizon = getPlanWindow(plan);
+
+  for (const a of (plan.allocations || [])) {
+    const res = (plan.resources || []).find(r => r.id === a.resource_id);
+    const hire = res ? getResourceHireWindow(plan, res) : horizon;
+
+    // --- Baseline ---
+    if (a.baseline_cost && (a.baseline_start || a.start)) {
+      const bs = new Date(a.baseline_start || a.start);
+      const be = new Date(a.baseline_end   || a.end   || a.start);
+      const cr = clampRange(bs, be, hire.start, hire.end);
+      const cr2 = cr ? clampRange(cr[0], cr[1], horizon.start, horizon.end) : null;
+      if (cr2) {
+        for (const { day, amount } of distributeByWorkingHours(a.baseline_cost, cr2[0], cr2[1])) {
+          const { key } = periodKeyAndBounds(day, periodType);
+          const b = buckets.get(key);
+          if (b) b.baseline += amount;
+        }
+      }
+    }
+
+    // --- Actual ---
+    if (a.cost && a.start) {
+      const as = new Date(a.start);
+      const ae = new Date(a.end || a.start);
+      const cr = clampRange(as, ae, hire.start, hire.end);
+      const cr2 = cr ? clampRange(cr[0], cr[1], horizon.start, horizon.end) : null;
+      if (cr2) {
+        for (const { day, amount } of distributeByWorkingHours(a.cost, cr2[0], cr2[1])) {
+          const { key } = periodKeyAndBounds(day, periodType);
+          const b = buckets.get(key);
+          if (b) b.current += amount;
+        }
+      }
+    }
+  }
+
+  // -> sorted array with status
+  return Array.from(buckets.entries())
+    .sort(([,a],[,b]) => a.start - b.start)
+    .map(([period, v]) => ({
+      period,
+      start: v.start,
+      end: v.end,
+      status: periodStatus(v.start, v.end, today),
+      baseline: v.baseline,
+      current: v.current
+    }));
+}
+
+function makeCashflowLegend() {
+  return `
+    <div class="text-muted small mb-2">
+      <div><strong>How to read:</strong> Two bars per period — <em>Baseline</em> (left) and <em>Actual</em> (right).
+      Each bar represents the total project baseline/actual; the filled part is this period’s share.</div>
+      <div class="mt-1">
+        <span class="badge bg-secondary me-1">&nbsp;</span> past
+        <span class="badge bg-warning ms-2 me-1 progress-bar-striped">&nbsp;</span> includes today
+      </div>
     </div>`;
 }
 
-/* ---------------------- Cashflow functions ---------------------- */
-
-/**
- * Helper to get week number for a date.
- */
-function getWeekNumber(date) {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-  const dayNum = d.getUTCDay() || 7;
-  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+function barClassFor(status, kind) {
+  if (status === 'past')  return 'bg-secondary';
+  if (status === 'mixed') return 'bg-warning progress-bar-striped';
+  return kind === 'baseline' ? 'bg-info' : 'bg-success';
 }
 
-/**
- * Build cashflow metrics by period ('day', 'week', or 'month').
- */
-function buildCashflowMetrics(plan, periodType='month') {
-  const bucketed = {};
-  plan.allocations.forEach(a => {
-    const cost = a.cost || 0;
-    const base = a.baseline_cost || 0;
-    const start = new Date(a.start);
-    const end = a.end ? new Date(a.end) : start;
-    const days = Math.ceil((end - start) / 86400000) + 1;
-    for (let i = 0; i < days; i++) {
-      const day = new Date(start.getTime() + i * 86400000);
-      let key;
-      switch(periodType) {
-        case 'day':
-          key = day.toISOString().slice(0,10);
-          break;
-        case 'week':
-          key = `${day.getFullYear()}-W${getWeekNumber(day)}`;
-          break;
-        default:
-          key = `${day.getFullYear()}-${String(day.getMonth()+1).padStart(2,'0')}`;
-      }
-      if (!bucketed[key]) bucketed[key] = { baseline:0, current:0 };
-      bucketed[key].baseline += base / days;
-      bucketed[key].current  += cost / days;
-    }
-  });
-  return Object.entries(bucketed)
-    .sort(([a],[b])=> a.localeCompare(b))
-    .map(([period, v])=> ({ period, baseline: v.baseline, current: v.current }));
+/* Overlay improved to be readable on light backgrounds */
+function makeCashflowChart(data) {
+  const totals = data.reduce((acc, d) => {
+    acc.baseline += d.baseline;
+    acc.current  += d.current;
+    return acc;
+  }, { baseline: 0, current: 0 });
+
+  const totalBase = Math.max(1, totals.baseline);
+  const totalAct  = Math.max(1, totals.current);
+
+  return `
+    <div class="cashflow-chart" style="font-size:.85rem;">
+      ${data.map(d => {
+        const basePct = Math.min(100, (d.baseline / totalBase) * 100);
+        const actPct  = Math.min(100, (d.current  / totalAct)  * 100);
+        const baseCls = barClassFor(d.status, 'baseline');
+        const actCls  = barClassFor(d.status, 'actual');
+
+        return `
+        <div class="d-flex align-items-center mb-2">
+          <div class="me-2" style="width:92px; white-space:nowrap;">${d.period}</div>
+
+          <!-- Baseline -->
+          <div class="progress flex-fill me-1 position-relative" style="height:16px;">
+            <div class="progress-bar ${baseCls}" style="width:${basePct.toFixed(1)}%"></div>
+            <span class="position-absolute top-50 start-50 translate-middle small text-dark fw-semibold">
+              ${d.baseline > 0 ? d.baseline.toFixed(0) : '0'}
+            </span>
+          </div>
+
+          <!-- Actual -->
+          <div class="progress flex-fill position-relative" style="height:16px;">
+            <div class="progress-bar ${actCls}" style="width:${actPct.toFixed(1)}%"></div>
+            <span class="position-absolute top-50 start-50 translate-middle small text-dark fw-semibold">
+              ${d.current > 0 ? d.current.toFixed(0) : '0'}
+            </span>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
 }
 
-/**
- * Controls for selecting cashflow period.
- */
 function makeCashflowControls(periodType) {
   return `<div class="btn-group mb-3" role="group">
     <button class="btn btn-sm btn-outline-primary${periodType==='day'?' active':''}" data-period="day">Day</button>
@@ -369,51 +777,34 @@ function makeCashflowControls(periodType) {
   </div>`;
 }
 
-/**
- * Render cashflow chart bars per period, with values displayed.
- */
-function makeCashflowChart(data) {
-  const maxVal = data.reduce((m,d)=> Math.max(m, d.baseline, d.current), 0) || 1;
-  return `
-    <div class="cashflow-chart" style="font-size:.85rem;">
-      ${data.map(d => {
-        const basePct = (d.baseline / maxVal) * 100;
-        const currPct = (d.current  / maxVal) * 100;
-        return `
-        <div class="d-flex align-items-center mb-2">
-          <div class="me-2" style="width:80px;">${d.period}</div>
-          <div class="progress flex-fill me-1 position-relative" style="height:16px; background-color: #343a40d5;">
-            <div class="progress-bar bg-secondary" style="width:${basePct.toFixed(1)}%"></div>
-            <span class="position-absolute top-50 start-50 translate-middle small text-light">${d.baseline.toFixed(0)}</span>
-          </div>
-          <div class="progress flex-fill position-relative" style="height:16px; background-color: #343a40d5;">
-            <div class="progress-bar bg-primary" style="width:${currPct.toFixed(1)}%"></div>
-            <span class="position-absolute top-50 start-50 translate-middle small text-light">${d.current.toFixed(0)}</span>
-          </div>
-        </div>`;
-      }).join('')}
-    </div>`;
-}
-
-/**
- * Populate and show the Cashflow drawer with period toggle.
- */
 function showCashflowDrawer(currentPlan, periodType = 'month') {
-  const body = $('#kpiDrawerBody');
+  const body  = $('#kpiDrawerBody');
   const title = $('#kpiDrawerLabel');
-  title.textContent = `Cashflow (${periodType.charAt(0).toUpperCase() + periodType.slice(1)})`;
-
-  // period switcher
-  const controls = makeCashflowControls(periodType);
 
   const data = buildCashflowMetrics(currentPlan, periodType);
-  body.innerHTML = controls + makeCashflowChart(data);
+  const totals = data.reduce((acc,d) => { acc.baseline+=d.baseline; acc.current+=d.current; return acc; }, {baseline:0,current:0});
 
-  // attach handlers
+  title.textContent = `Cashflow (${periodType.charAt(0).toUpperCase() + periodType.slice(1)})`;
+  const description = `
+    <div class="mb-2">
+      <div class="fw-semibold">Cashflow</div>
+      <div class="text-muted small">Two bars per period — Baseline (left) and Actual (right). Grey = past; striped = includes today.</div>
+    </div>`;
+
+  const totalsHtml = `
+    <div class="d-flex justify-content-end gap-3 mb-2" style="font-size:.9rem;">
+      <div><strong>Total Baseline:</strong> $${totals.baseline.toFixed(0)}</div>
+      <div><strong>Total Actual:</strong> $${totals.current.toFixed(0)}</div>
+    </div>`;
+
+  body.innerHTML = description + totalsHtml + makeCashflowControls(periodType) + makeCashflowLegend() + makeCashflowChart(data);
+
   body.querySelectorAll('[data-period]').forEach(btn => {
     btn.addEventListener('click', () => showCashflowDrawer(currentPlan, btn.dataset.period));
   });
 }
+/* -------------------- /Cashflow functions (revised) -------------------- */
+
 
 
 /*****************************************************************************************
@@ -470,11 +861,17 @@ bar.addEventListener('click', e => {
     oc.tabIndex = -1;
     oc.id = 'kpiDrawer';
     oc.innerHTML = `
-      <div class="offcanvas-header">
-        <h5 id="kpiDrawerLabel" class="offcanvas-title">KPIs</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+      <div class="offcanvas-header bg-gradient bg-secondary text-white border-bottom shadow-sm" style="padding: 1rem 1.5rem;">
+      <div class="d-flex align-items-center w-100">
+        <div>
+        <h5 id="kpiDrawerLabel" class="offcanvas-title mb-0 fw-bold" style="font-size: 1.35rem;">KPIs</h5>
+        <div class="text-light small mt-1">Key Performance Indicators &amp; Resource Metrics</div>
+        </div>
+        <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="offcanvas" aria-label="Close"></button>
       </div>
-      <div id="kpiDrawerBody" class="offcanvas-body small"></div>`;
+      </div>
+      <div id="kpiDrawerBody" class="offcanvas-body small"></div>
+    `;
     document.body.appendChild(oc);
   }
 }

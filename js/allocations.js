@@ -9,7 +9,6 @@ export function durationHours(a){
 }
 
 export function durationDays(a){
-  console.log('durationDays: hours', durationHours(a));
   return +(durationHours(a) / 24).toFixed(1);        // 1 decimal, e.g. “3.5”
 }
 
@@ -25,6 +24,7 @@ export function populateResourcePicker(selectEl, plan, selected) {
     `<option value="${r.id}" ${r.id===selected?'selected':''}>${r.name}</option>`).join('');
 }
 
+
 /**
   * Build vis-Timeline “background” items that cover any interval where the
   * **sum of allocation_pct for a resource rises above 100 %**.
@@ -36,34 +36,34 @@ export function buildOverbookBands(plan){
   plan.resources.forEach(r => {
     const events = [];
     plan.allocations
-        .filter(a => a.resource_id === r.id)
-        .forEach(a => {
-          events.push({ t:new Date(a.start), d:+a.allocation_pct });   // +load
-          events.push({ t:new Date(a.end  ), d:-a.allocation_pct });   // -load
-        });
+      .filter(a => a.resource_id === r.id && !isBox(a))  // ← ignore boxes
+      .forEach(a => {
+        events.push({ t:new Date(a.start), d:+a.allocation_pct }); // +load
+        events.push({ t:new Date(a.end  ), d:-a.allocation_pct }); // -load
+      });
 
-    events.sort((a,b)=> a.t-b.t || b.d-b.d);        // starts before ends at same ms
-
+    events.sort((a,b)=> a.t-b.t || b.d-b.d);
     let load = 0, bandStart = null;
+
     for (const {t,d} of events){
       const prev = load;
       load += d;
-      if (prev <= 100 && load > 100)        bandStart = t; // overload begins
+      if (prev <= 100 && load > 100) bandStart = t;
       if (prev > 100  && load <= 100 && bandStart){
-        bands.push({ start: bandStart, end: t,
-                    group: r.id, type:'background', className:'bg-overbook' });
+        bands.push({ start: bandStart, end: t, group: r.id, type:'background', className:'bg-overbook' });
         bandStart = null;
       }
     }
   });
+
   return bands;
 }
 
+
 export function calcCost(allocation, plan){
-  console.log('calcCost called', allocation);
-  const res = plan.resources.find(r => r.id === allocation.resource_id) || { cost_per_hour: 0 };
-  const hours = plannedHours(allocation);         // ← NEW: calendar-aware
-  console.log('productiveHours:', hours);
-  console.log('returning cost:', +(hours * res.cost_per_hour).toFixed(2));
-  return +(hours * res.cost_per_hour).toFixed(2);
+  const res   = plan.resources.find(r => r.id === allocation.resource_id);
+  const rate  = res?.cost_per_hour ?? 0;
+  const hours = plannedHours(allocation);      // calendar‑aware; boxes → 0
+  const cost  = hours * rate;
+  return +cost.toFixed(2);
 }

@@ -124,7 +124,6 @@ timeline.on('doubleClick', quickAddBox); // add box on double-click
 timeline.on('hold', quickAddBox);   
 
 timeline.on('click', props => {
-  console.log('timeline click', props);
   if (props.what !== 'group-label') return; // only labels
   const resId = props.group;
   if (!resId) return; // clicked in empty margin
@@ -179,29 +178,46 @@ let editingResId=null;
 $('#btn-add-resource').onclick=()=>{editingResId=null; clearResForm(); bootstrap.Modal.getOrCreateInstance('#modal-resource').show();};
 
 
-$('#modal-resource form').onsubmit=e=>{
+$('#modal-resource form').onsubmit = e => {
   e.preventDefault();
   const obj = {
-  name: $('#res-name').value.trim(),
-  class: $('#res-class').value.trim(),
-  description: $('#res-desc').value.trim(),
-  cost_per_hour: +$('#res-cost').value || 0
-  };
-  if(!obj.name) return;
+    name: $('#res-name').value.trim(),
+    class: $('#res-class').value.trim(),
+    description: $('#res-desc').value.trim(),
+    cost_per_hour: +$('#res-cost').value || 0,
 
-  if(editingResId){
-    Object.assign(plan.resources.find(r=>r.id===editingResId), obj);
-  }else{
-    obj.id=crypto.randomUUID().slice(0, 8); plan.resources.push(obj);
+    // NEW: hired period (UTC ISO at day bounds)
+    start: startIso($('#res-start').value),                 // may be null if empty
+    end: endIso($('#res-end').value) || null              // null = open-ended
+  };
+  if (!obj.name) return;
+
+  if (editingResId) {
+    Object.assign(plan.resources.find(r => r.id === editingResId), obj);
+  } else {
+    obj.id = crypto.randomUUID().slice(0, 8);
+    plan.resources.push(obj);
   }
-  saveAndRender(); bootstrap.Modal.getInstance('#modal-resource').hide();
+
+  saveAndRender();
+  bootstrap.Modal.getInstance('#modal-resource').hide();
 };
 
-function openResModal(id){ editingResId=id; const r=plan.resources.find(x=>x.id===id);
-  $('#res-name').value=r.name; $('#res-class').value=r.class; $('#res-desc').value=r.description||'';
-  $('#res-cost').value = r.cost_per_hour ?? 0;
+
+function openResModal(id){
+  editingResId = id;
+  const r = plan.resources.find(x => x.id === id);
+
+  $('#res-name').value  = r.name;
+  $('#res-class').value = r.class;
+  $('#res-desc').value  = r.description || '';
+  $('#res-cost').value  = r.cost_per_hour ?? 0;
+  $('#res-start').value = r.start ? isoToInputDate(r.start) : '';
+  $('#res-end').value   = r.end   ? isoToInputDate(r.end)   : '';
+
   bootstrap.Modal.getOrCreateInstance('#modal-resource').show();
 }
+
 function removeRes(id){ showConfirm('Delete resource?', 'btn-danger').then((confirmed) => {
     if (confirmed) {
       plan.resources = plan.resources.filter(r => r.id !== id);
@@ -211,8 +227,15 @@ function removeRes(id){ showConfirm('Delete resource?', 'btn-danger').then((conf
   });
 }
 
-function clearResForm(){ 
-  $('#res-name').value=$('#res-class').value=$('#res-desc').value=$('#res-cost').value='';
+
+function clearResForm(){
+  $('#res-name').value  = '';
+  $('#res-class').value = '';
+  $('#res-desc').value  = '';
+  $('#res-cost').value  = '';
+
+  $('#res-start').value = '';
+  $('#res-end').value   = '';
 }
 
 export function startIso(dateStr){                    // midnight
@@ -308,14 +331,13 @@ $('#btn-reset-baseline').onclick = () => {
   a.baseline_end   = isBox(a) ? null : a.end;
   a.baseline_cost = a.cost;          // keep cost in sync
   saveJSON(STORAGE_KEY, plan);
-  $('#alloc-bl-start').value = toLocal(a.baseline_start);
-  $('#alloc-bl-end').value   = toLocal(a.baseline_end);
+  $('#alloc-bl-start').value = isoToInputDate(a.baseline_start);
+  $('#alloc-bl-end').value   = isoToInputDate(a.baseline_end);
   timeline.redraw();                    // grey bar will move (added in item 3)
 };
 
 // on submit, save allocation
 $('#modal-allocation form').onsubmit=e=>{
-  console.log('submit allocation');
   e.preventDefault();
 
   const obj = {

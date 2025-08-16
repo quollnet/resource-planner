@@ -95,57 +95,57 @@
     <div class="row">
       <!-- Resources table column -->
       <div class="col-lg position-relative">
-      <!-- Only the table scrolls, not the whole screen -->
-      <div class="border rounded-3 p-2" style="max-width: 900px;">
-        <div class="d-flex align-items-center mb-1" style="max-width: 900px;">
-        <h5 class="mb-0">Resources</h5>
+        <!-- Only the table scrolls, not the whole screen -->
+        <div class="border rounded-3 p-2" style="max-width: 900px;">
+          <div class="d-flex align-items-center mb-1" style="max-width: 900px;">
+            <h5 class="mb-0">Resources</h5>
 
-        <div class="ms-auto">
-          <button id="btn-add-resource" class="btn btn-outline-success btn-sm">
-          + Add resource
-          </button>
-          <button class="btn btn-outline-secondary btn-sm me-2" type="button" data-bs-toggle="collapse" data-bs-target="#resources-table, #features-list" aria-expanded="true" aria-controls="resources-table features-list" title="Hide/show resources">
-          ⬍
-        </button>
+            <div class="ms-auto">
+              <button id="btn-add-resource" class="btn btn-outline-success btn-sm">
+                + Add resource
+                </button>
+                <button class="btn btn-outline-secondary btn-sm me-2" type="button" data-bs-toggle="collapse" data-bs-target="#resources-table, #features-list" aria-expanded="true" aria-controls="resources-table features-list" title="Hide/show resources">
+                ⬍
+              </button>
+            </div>
+          </div>
+          <div class="table-responsive collapse show" id="resources-table" style="max-width: 900px; max-height: 280px; overflow-y:auto; overflow-x:hidden;">
+            <hr class="m-0">
+            
+            <table id="tbl-resources" class="table table-sm table-hover w-100 table-striped">
+            <thead style="position: sticky; top: 0; z-index: 2;">
+              <tr>
+                <th>Name</th>
+                <th class="d-none d-md-table-cell">Class</th>
+                <th>Description</th>
+                <th class="d-none d-md-table-cell" style="min-width: 100px;">Cost per hour</th>
+                <th class="d-none d-md-table-cell" style="min-width: 120px;">Start (hired)</th>
+                <th class="d-none d-md-table-cell" style="min-width: 120px;">End (release)</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+            </table>
+          </div>
         </div>
-        </div>
-        <div class="table-responsive collapse show" id="resources-table" style="max-width: 900px; max-height: 280px; overflow-y:auto; overflow-x:hidden;">
-        <hr class="m-0">
-        
-        <table id="tbl-resources" class="table table-sm table-hover w-100 table-striped">
-        <thead style="position: sticky; top: 0; z-index: 2;">
-          <tr>
-          <th>
-            Name
-          </th>
-          <th class="d-none d-md-table-cell">Class</th>
-          <th>Description</th>
-          <th class="d-none d-md-table-cell" style="min-width: 100px;">Cost per hour</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-        </table>
-        </div>
-      </div>
       </div>
       <!-- Features column -->
       <div class="col-lg mt-4 mt-lg-0">
-      <div class="d-flex align-items-center mb-2">
-        <h2 class="mb-0" style="font-size: 1.25rem;">Key Features</h2>
-        <button class="btn btn-outline-secondary btn-sm ms-2" type="button" data-bs-toggle="collapse" data-bs-target="#features-list" aria-expanded="true" aria-controls="features-list" title="Hide/show features">
-        ⬍
-        </button>
-      </div>
-      <div class="collapse show" id="features-list">
-        <ul style="font-size: 0.75em;">
-        <li class="text-muted"><strong>Drag-and-drop resource scheduling</strong> for faster project planning</li>
-        <li class="text-muted">Full <strong>resource management</strong> dashboard with capacity views</li>
-        <li class="text-muted">Live <strong>KPI tracking</strong> and utilization analytics</li>
-        <li class="text-muted">JSON import/export for easy data exchange</li>
-        <li class="text-muted"><strong>Capacity planning & resource forecasting</strong> to anticipate project needs and prevent over-allocation</li>
-        <li class="text-muted"><strong>Customizable dashboards & real-time resource utilization analytics</strong> for data-driven decision making</li>
-        </ul>
-      </div>
+        <div class="d-flex align-items-center mb-2">
+          <h2 class="mb-0" style="font-size: 1.25rem;">Key Features</h2>
+          <button class="btn btn-outline-secondary btn-sm ms-2" type="button" data-bs-toggle="collapse" data-bs-target="#features-list" aria-expanded="true" aria-controls="features-list" title="Hide/show features">
+          ⬍
+          </button>
+        </div>
+        <div class="collapse show" id="features-list">
+          <ul style="font-size: 0.75em;">
+          <li class="text-muted"><strong>Drag-and-drop resource scheduling</strong> for faster project planning</li>
+          <li class="text-muted">Full <strong>resource management</strong> dashboard with capacity views</li>
+          <li class="text-muted">Live <strong>KPI tracking</strong> and utilization analytics</li>
+          <li class="text-muted">JSON import/export for easy data exchange</li>
+          <li class="text-muted"><strong>Capacity planning & resource forecasting</strong> to anticipate project needs and prevent over-allocation</li>
+          <li class="text-muted"><strong>Customizable dashboards & real-time resource utilization analytics</strong> for data-driven decision making</li>
+          </ul>
+        </div>
       </div>
     </div>
 
@@ -182,6 +182,18 @@
           <div class="mb-3">
             <label class="form-label">Description</label>
             <textarea id="res-desc" class="form-control" rows="2"></textarea>
+          </div>
+          <div class="row g-3 mb-3">
+            <div class="col-sm-6">
+              <label class="form-label">Start (hired)</label>
+              <input id="res-start" type="date" class="form-control">
+            </div>
+            <div class="col-sm-6">
+              <label class="form-label">End (planned release)
+                <small class="text-muted">(leave blank = open ended)</small>
+              </label>
+              <input id="res-end" type="date" class="form-control">
+            </div>
           </div>
           <div class="mb-3">
             <label class="form-label">Hourly cost</label>

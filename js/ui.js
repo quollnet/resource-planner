@@ -24,13 +24,13 @@ export function toggleTheme() {
   .forEach(id => document.getElementById(id).addEventListener('input', refreshNumbers));
 
 export function refreshNumbers(){
-  console.log('refreshNumbers called');
   const tmp = {
-    resource_id: $('#alloc-res').value,
+    resource_id: $('#alloc-res').value || (window.plan.resources[0]?.id ?? ''),
     start: startIso($('#alloc-start').value),
-    end: endIso($('#alloc-end').value) || null,
+    end:   endIso($('#alloc-end').value) || null,
     allocation_pct: +$('#alloc-pct').value || 0
   };
+
   // cost
   $('#alloc-cost').textContent = calcCost(tmp, window.plan).toFixed(2);
 

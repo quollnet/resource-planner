@@ -205,3 +205,13 @@
 }
 
 }
+
+/* Light tint for resource hire/release background */
+.vis-item.vis-background.bg-hire {
+  background-color: rgba(100, 149, 237, 0.12); /* cornflower-ish */
+  border: none;
+}
+
+.vis-item.low-hours-bg {
+  background-color: rgba(255, 200, 0, 0.2); /* light yellow */
+}
