@@ -56,7 +56,7 @@ Simply open `index.html` in your browser or deploy it via GitHub Pages.
 
 ## 🌐 Live Demo
 
-[View Demo](https://YOUR_USERNAME.github.io/resource-planner/)
+[View Demo](https://quollnet.github.io/resource-planner/)
 
 ## 📸 Screenshots
 
