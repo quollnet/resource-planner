@@ -199,10 +199,35 @@ function kpiIdleRows(plan, future = false) {
 // earliest start date and latest end date of all allocations vs.
 // earliest baseline start date and latest baseline end date
 function kpiScheduleVariance(plan) {
-  let earliestStart = new Date(Math.min(...plan.allocations.map(a => new Date(a.start))));
-  let latestEnd = new Date(Math.max(...plan.allocations.map(a => new Date(a.end))));
-  let earliestBaselineStart = new Date(Math.min(...plan.allocations.map(a => a.baseline_start ? new Date(a.baseline_start) : Infinity)));
-  let latestBaselineEnd = new Date(Math.max(...plan.allocations.map(a => a.baseline_end ? new Date(a.baseline_end) : -Infinity)));
+  // Filter valid start dates
+  const startDates = plan.allocations
+    .map(a => new Date(a.start))
+    .filter(d => !isNaN(d));
+  const earliestStart = startDates.length
+    ? new Date(Math.min(...startDates.map(d => +d)))
+    : new Date();
+
+  const endDates = plan.allocations
+    .map(a => new Date(a.end))
+    .filter(d => !isNaN(d));
+  const latestEnd = endDates.length
+    ? new Date(Math.max(...endDates.map(d => +d)))
+    : new Date();
+
+  const baselineStartDates = plan.allocations
+    .map(a => a.baseline_start ? new Date(a.baseline_start) : null)
+    .filter(d => d && !isNaN(d));
+  const earliestBaselineStart = baselineStartDates.length
+    ? new Date(Math.min(...baselineStartDates.map(d => +d)))
+    : new Date();
+
+  const baselineEndDates = plan.allocations
+    .map(a => a.baseline_end ? new Date(a.baseline_end) : null)
+    .filter(d => d && !isNaN(d));
+  const latestBaselineEnd = baselineEndDates.length
+    ? new Date(Math.max(...baselineEndDates.map(d => +d)))
+    : new Date();
+
   const scheduleVariance = {
     earliestStart: utcIsoToLocalDate(earliestStart.toISOString()),
     latestEnd: utcIsoToLocalDate(latestEnd.toISOString()),

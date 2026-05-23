@@ -215,3 +215,20 @@
 .vis-item.low-hours-bg {
   background-color: rgba(255, 200, 0, 0.2); /* light yellow */
 }
+
+.icon { width:20px; height:20px; vertical-align:middle; color: var(--bs-body-secondary); }
+
+/* Resource modal */
+.res-avatar {
+  width: 44px; height: 44px; font-weight: 700;
+}
+.kpi-pill {
+  border: 1px solid var(--bs-border-color);
+  border-radius: .75rem;
+  padding: .5rem .75rem;
+  background: var(--bs-body-bg);
+}
+.kpi-pill .kpi-label { font-size: .75rem; color: var(--bs-secondary-color); }
+.kpi-pill .kpi-value { font-size: 1.1rem; font-weight: 600; }
+.mini-timeline { min-height: 120px; background: var(--bs-tertiary-bg); }
+#resourceModal .icon { width: 1rem; height: 1rem; vertical-align: -.125rem; }

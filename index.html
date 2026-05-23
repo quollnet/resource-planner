@@ -51,43 +51,91 @@
   <!-- Local vis-timeline -->
   <link href="assets/vendor/vis-timeline-graph2d.min.css" rel="stylesheet">
 
-
   <!-- App-specific tweaks -->
   <link href="assets/css/styles.css" rel="stylesheet">
 </head>
 <body class="d-flex flex-column vh-100">
 
-  <!-- ===== Navbar ===== -->
-  <nav class="navbar navbar-expand-lg px-3">
-  <a class="navbar-brand d-flex align-items-center gap-2" href="https://www.quollnet.com">
-    <img src="assets/img/logo.png" alt="" width="50px" height="50px" style="align-self: flex-start;">
-  </a>
+<nav class="navbar px-3 py-2" aria-label="Main">
+  <div class="container-fluid g-0 d-flex align-items-center flex-nowrap"><!-- prevent wrapping -->
 
-  <div class="lh-sm">
-    <h1 style="font-size: 1.5rem;">Resource Planner</h1>
-    <p class="lead" style="font-size: 12px; margin-top: -5px;">
-      The easiest <strong>resource management</strong> and <strong>resource scheduling</strong> web app
-      <br> complete with real-time <strong>KPI tracking</strong> and project planning tools.
-    </p>
-    
-  </div>
-
-    <div class="ms-auto">
-      <div class="d-flex align-items-center">
-        <div id="planner-display" class="small text-muted">Untitled</div>  <!-- filled by JS -->
-        <a id="btn-edit-name" class="btn btn-link ms-1" style="text-decoration: none;"
-          title="Rename planner">✎</a>
+    <!-- Brand (logo + title) -->
+    <div class="navbar-brand d-flex align-items-center gap-2 pe-2 flex-grow-1" style="min-width:0;"><!-- allow shrink -->
+      <a href="https://www.quollnet.com" target="_blank" rel="noopener"
+          class="text-decoration-none d-flex align-items-center gap-2 flex-shrink-0">
+        <span class="visually-hidden">Quollnet</span>
+        <img src="assets/img/logo.png" alt="Quollnet" width="35" height="35" class="brand-logo">
+      </a>
+      <div class="d-flex flex-column lh-sm" style="min-width:0;"><!-- allow child to shrink -->
+        <span class="brand-title text-nowrap">Resource Planner</span>
+        <!-- remove the old max-width -->
+        <div id="planner-display" class="small text-muted text-truncate d-block" title="Untitled">
+          Untitled
         </div>
-      <div class="mt-1">
-      <button id="btn-theme" class="btn btn-outline-secondary btn-sm me-2" title="Toggle theme">🌙</button>
-      <button id="btn-new" class="btn btn-outline-secondary btn-sm me-2">🆕 New</button>
-      <button id="btn-open" class="btn btn-outline-secondary btn-sm me-2">📂 Open</button>
-      <button id="btn-save" class="btn btn-outline-secondary btn-sm">💾 Save</button>
       </div>
     </div>
-    <!-- hidden file input for Open -->
-    <input type="file" id="file-input" accept=".json" hidden>
-  </nav>
+
+    <!-- Actions dropdown -->
+    <div class="dropdown ms-auto flex-shrink-0"><!-- never shrink the button -->
+      <button class="btn" id="navbarActions" data-bs-toggle="dropdown" data-bs-display="static"
+              aria-expanded="false" title="More actions" aria-label="More actions" type="button">
+        <svg class="icon" aria-hidden="true" style="width: 2em; height: 2em;">
+          <use href="assets/icons/sprite.svg?v=71#menu" xlink:href="assets/icons/sprite.svg?v=71#menu"></use>
+        </svg>
+      </button>
+
+      <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarActions">
+        <li>
+          <a class="dropdown-item d-flex align-items-center gap-2" id="btn-edit-name" href="#" title="Rename planner">
+            <svg class="icon" aria-hidden="true">
+              <use href="assets/icons/sprite.svg?v=7#edit" xlink:href="assets/icons/sprite.svg?v=7#edit"></use>
+            </svg>
+            <span>Rename</span>
+          </a>
+        </li>
+
+        <li>
+          <a class="dropdown-item d-flex align-items-center gap-2" id="btn-new" href="#" title="New">
+            <svg class="icon" aria-hidden="true">
+              <use href="assets/icons/sprite.svg?v=7#new" xlink:href="assets/icons/sprite.svg?v=7#new"></use>
+            </svg>
+            <span>New</span>
+          </a>
+        </li>
+        <li>
+          <a class="dropdown-item d-flex align-items-center gap-2" id="btn-open" href="#" title="Open">
+            <svg class="icon" aria-hidden="true">
+              <use href="assets/icons/sprite.svg?v=7#open" xlink:href="assets/icons/sprite.svg?v=7#open"></use>
+            </svg>
+            <span>Open</span>
+          </a>
+        </li>
+        <li>
+          <a class="dropdown-item d-flex align-items-center gap-2" id="btn-save" href="#" title="Save">
+            <svg class="icon" aria-hidden="true">
+              <use href="assets/icons/sprite.svg?v=7#save" xlink:href="assets/icons/sprite.svg?v=7#save"></use>
+            </svg>
+            <span>Save</span>
+          </a>
+        </li>
+        <li><hr class="dropdown-divider"></li>
+        <li>
+          <a class="dropdown-item d-flex align-items-center gap-2" id="btn-theme" href="#" title="Toggle theme">
+            <svg class="icon" aria-hidden="true">
+              <use href="assets/icons/sprite.svg?v=7#theme" xlink:href="assets/icons/sprite.svg?v=7#theme"></use>
+            </svg>
+            <span>Theme</span>
+          </a>
+        </li>
+      </ul>
+    </div>
+
+  </div>
+  <!-- hidden file input for Open -->
+  <input type="file" id="file-input" accept=".json" hidden>
+</nav>
+
+
   <!-- ===== Main content ===== -->
   <div class="container-fluid py-3 overflow-auto flex-grow-1">
 
@@ -101,7 +149,7 @@
             <h5 class="mb-0">Resources</h5>
 
             <div class="ms-auto">
-              <button id="btn-add-resource" class="btn btn-outline-success btn-sm">
+              <button id="btn-add-resource" class="btn btn-success btn-sm">
                 + Add resource
                 </button>
                 <button class="btn btn-outline-secondary btn-sm me-2" type="button" data-bs-toggle="collapse" data-bs-target="#resources-table, #features-list" aria-expanded="true" aria-controls="resources-table features-list" title="Hide/show resources">
@@ -113,16 +161,15 @@
             <hr class="m-0">
             
             <table id="tbl-resources" class="table table-sm table-hover w-100 table-striped">
-            <thead style="position: sticky; top: 0; z-index: 2;">
-              <tr>
-                <th>Name</th>
-                <th class="d-none d-md-table-cell">Class</th>
-                <th>Description</th>
-                <th class="d-none d-md-table-cell" style="min-width: 100px;">Cost per hour</th>
-                <th class="d-none d-md-table-cell" style="min-width: 120px;">Start (hired)</th>
-                <th class="d-none d-md-table-cell" style="min-width: 120px;">End (release)</th>
-              </tr>
-            </thead>
+              <thead style="position: sticky; top: 0; z-index: 2;">
+                <tr>
+                  <th>Name</th>
+                  <th>Class</th>
+                  <th class="d-none d-md-table-cell">Description</th>
+                  <th class="d-none d-md-table-cell" style="min-width: 100px;">Cost/hr</th>
+                  <th class="d-none d-md-table-cell" style="min-width: 160px;">Period</th>
+                </tr>
+              </thead>
             <tbody></tbody>
             </table>
           </div>
@@ -155,13 +202,13 @@
       <div class="ms-auto">
         <button id="btn-edit-alloc" class="btn btn-outline-secondary btn-sm me-2" disabled>✎</button>
         <button id="btn-del-alloc" class="btn btn-outline-secondary btn-sm me-2" disabled>🗑</button>
-        <button id="btn-add-allocation" class="btn btn-outline-success btn-sm me-2" title="Add new resource allocation for project scheduling">
+        <button id="btn-add-allocation" class="btn btn-primary btn-sm me-2" title="Add new resource allocation for project scheduling">
           + Allocate
         </button>
       </div>
     </div>
 
-    <div id="timelineWrap" style="touch-action:none; overscroll-behavior:contain;">
+    <div id="timelineWrap" style="overscroll-behavior:contain;">
       <div id="timeline" style="height:400px;"></div>
     </div>
 
@@ -313,6 +360,153 @@
       </div>
     </div>
   </div>
+
+<!-- Resource Modal -->
+<div class="modal fade" id="resourceModal" tabindex="-1" aria-labelledby="resourceModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header align-items-start">
+        <div class="d-flex align-items-center gap-3">
+          <div class="res-avatar rounded-circle text-bg-primary d-flex align-items-center justify-content-center">
+            <span id="res-avatar-initials">R</span>
+          </div>
+          <div>
+            <h5 class="modal-title" id="resourceModalLabel">Resource Name</h5>
+            <div class="text-muted small">
+              <span id="res-class" class="badge bg-light text-dark me-2"></span>
+              <span id="res-cost" class="text-muted me-2"></span>
+              <span id="res-period" class="text-muted"></span>
+            </div>
+          </div>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <button class="btn btn-success btn-sm" id="res-btn-allocate">
+            <svg class="icon me-1"><use href="assets/icons/sprite.svg#earth"></use></svg> Allocate
+          </button>
+          <button class="btn btn-secondary btn-sm" id="res-btn-edit">
+            <svg class="icon me-1"><use href="assets/icons/sprite.svg#edit"></use></svg> Edit
+          </button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
+
+      <div class="modal-body">
+        <!-- KPIs -->
+        <div class="row g-3 mb-3" id="res-kpis">
+          <div class="col-6 col-md-3">
+            <div class="kpi-pill">
+              <div class="kpi-label">Utilization</div>
+              <div class="kpi-value" id="kpi-util">—</div>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="kpi-pill">
+              <div class="kpi-label">Allocated hrs</div>
+              <div class="kpi-value" id="kpi-alloc-hrs">—</div>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="kpi-pill">
+              <div class="kpi-label">Capacity hrs</div>
+              <div class="kpi-value" id="kpi-cap-hrs">—</div>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="kpi-pill">
+              <div class="kpi-label">Cost/hr</div>
+              <div class="kpi-value" id="kpi-rate">—</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tabs -->
+        <ul class="nav nav-tabs" id="resTabs" role="tablist">
+          <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="tab-overview" data-bs-toggle="tab" data-bs-target="#pane-overview" type="button" role="tab">Overview</button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tab-allocs" data-bs-toggle="tab" data-bs-target="#pane-allocs" type="button" role="tab">Allocations</button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tab-notes" data-bs-toggle="tab" data-bs-target="#pane-notes" type="button" role="tab">Notes</button>
+          </li>
+          <li class="nav-item ms-auto d-none d-md-block">
+            <span class="small text-muted align-self-center me-2" id="res-id"></span>
+          </li>
+        </ul>
+
+        <div class="tab-content p-3 border border-top-0 rounded-bottom">
+          <!-- Overview -->
+          <div class="tab-pane fade show active" id="pane-overview" role="tabpanel">
+            <div class="row g-3">
+              <div class="col-md-7">
+                <h6 class="text-muted">Description</h6>
+                <p id="res-desc" class="mb-3">—</p>
+
+                <div class="row g-2">
+                  <div class="col-6">
+                    <div class="small text-muted">Hire date</div>
+                    <div id="res-start" class="">—</div>
+                  </div>
+                  <div class="col-6">
+                    <div class="small text-muted">Release date</div>
+                    <div id="res-end" class="">—</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="col-md-5">
+                <h6 class="text-muted">Mini timeline</h6>
+                <div id="res-mini-timeline" class="mini-timeline border rounded p-2">
+                  <!-- You can drop a compact vis-timeline here later -->
+                  <div class="small text-muted">Timeline preview coming soon…</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Allocations -->
+          <div class="tab-pane fade" id="pane-allocs" role="tabpanel">
+            <div class="table-responsive">
+              <table class="table table-sm align-middle">
+                <thead>
+                  <tr>
+                    <th>Allocation</th>
+                    <th class="text-nowrap">Start → End</th>
+                    <th class="text-end">Notes</th>
+                  </tr>
+                </thead>
+                <tbody id="res-allocs">
+                  <tr><td colspan="3" class="text-muted">No allocations.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Notes -->
+          <div class="tab-pane fade" id="pane-notes" role="tabpanel">
+            <div id="res-notes" class="form-text">No notes.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer justify-content-between">
+        <button class="btn btn-outline-danger" id="res-btn-delete">
+          <svg class="icon me-1"><use href="assets/icons/sprite.svg#delete_forever"></use></svg> Delete
+        </button>
+        <div>
+          <button class="btn btn-secondary me-2" id="res-btn-edit-2">
+            <svg class="icon me-1"><use href="assets/icons/sprite.svg#edit"></use></svg> Edit
+          </button>
+          <button class="btn btn-success" id="res-btn-allocate-2">
+            <svg class="icon me-1"><use href="assets/icons/sprite.svg#earth"></use></svg> Allocate
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 
 <footer class="text-center small py-3">
   Resource Planner is a free, web-based <strong>resource management</strong> and <strong>project scheduling</strong> tool with built-in <strong>KPI tracking</strong>—no install required.

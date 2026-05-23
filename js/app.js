@@ -9,7 +9,7 @@ import { showAlert } from './ui.js';
 import { refreshKpis } from './kpi_bar_drawer.js';
 import { initCrypto, utcIsoToLocalDate, localDateToUtcIso, isoToInputDate, localEndDateToUtcIso } from './utils.js';
 import { ensureResDrawer, showResDrawer } from './res_drawer.js';
-
+import './resource_modal.js';
 
 /* ---------- boot ---------- */
 initCrypto();  // initialize crypto for UUIDs
@@ -268,6 +268,14 @@ export function initResourceTable() {
       removeRes(tr.dataset.id);
       renderAll();                           // table re-renders ⇒ bindings stay
       return;
+    }
+
+    if (e.target.matches('.resource-name')) {
+        const tr = e.target.closest('tr'); if (!tr) return;
+        const id = tr.dataset.id;
+        const r = plan.resources.find(r => r.id === id);
+      document.dispatchEvent(new CustomEvent('resource:view', { detail: { resource: r, plan: plan } }));
+      return; // don’t toggle actions on name click
     }
 
     /* ------- plain row click: toggle visibility ------- */
